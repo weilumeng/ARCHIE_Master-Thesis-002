@@ -2,7 +2,7 @@
 clear;
 IEEE33bus;
 % Assessing the Data
-nl=length(branchdata(:,1));
+NL=length(branchdata(:,1));
 nbus=length(busdata(:,1));
 sn=branchdata(:,1);
 rn=branchdata(:,2);
@@ -15,7 +15,7 @@ ns=slack;
 y1=zeros(nbus,nbus);
 
 %********************formation of  negative Ybus[Y]------------------
-for i=1:nl
+for i=1:NL
     y1(sn(i),rn(i))=-1/X(i);
     y1(rn(i),sn(i))=-1/X(i);
     y1(sn(i),sn(i))=y1(sn(i),sn(i))+1/X(i);
@@ -43,9 +43,9 @@ end
 Bp;
 rec=inv(Bp);
 
-xx=zeros(nl,nl);
-node=zeros(nl,nbus);
-for i=1:nl
+xx=zeros(NL,NL);
+node=zeros(NL,nbus);
+for i=1:NL
     xx(i,i)=1/X(i);
     sn(i,1)=branchdata(i,1);
     rn(i,1)=branchdata(i,2);
@@ -57,7 +57,7 @@ node(:,ns)=node(:,nbus);
 node(:,nbus)=[];
 
 sf=xx*node*rec;
-sf=[sf zeros(nl,1)];
+sf=[sf zeros(NL,1)];
 sf(:,nbus)=sf(:,ns);
 sf(:,ns)=zeros;
 sf;
