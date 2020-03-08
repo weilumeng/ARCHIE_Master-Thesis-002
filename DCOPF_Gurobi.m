@@ -1,7 +1,7 @@
 clear;
 IEEE33bus;
 slack=1;
-mkgsfmatrix2 %calculate Generation Shift Factor Matrix
+gsf_matrix %calculate Generation Shift Factor Matrix
         
        
 nd=length(busdata(:,3));
