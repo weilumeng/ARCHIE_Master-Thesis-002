@@ -29,11 +29,16 @@ b=[b1;b2];
 lb=gendata(:,10);
 ub=gendata(:,9);
 
-Qmatrix=zeros(5,5);
+Qmatrix=zeros(size(A,2),size(A,2));
+for i=1:length(gencostdata(:,5))
+    if gencostdata(i,5)~=0
+        Qmatrix(i,i)=gencostdata(i,5);
+    end
+end
 
 %Quadratic Programming with Gurobi
 
-names = {'P', 'P1', 'P2', 'P3', 'P4'};
+names = {'P0', 'P1', 'P2', 'P3', 'P4'};
 model.varnames = names;
 model.obj = f; 
 model.Q = [sparse(Qmatrix)];
@@ -75,21 +80,23 @@ busnames=busdata(:,1);
 
 for v=1:length(conjcost)
     if conjcost(v)~=0
-    fprintf('Congestion Cost @ Bus %g is %4.2f $/h\n', busnames(v) , conjcost(v));
+    fprintf(' Congestion Cost @ Bus %g is %4.2f $/h\n', busnames(v) , conjcost(v));
     end
 end
 
-fprintf('LMP -- Bus Number || Generation Cost || Congestion Cost \n \n')
+fprintf(' LMP -- Bus Number || Generation Cost || Congestion Cost \n \n')
 for v=1:length(lmp)
         if lmp(v)~=0
-         fprintf('The LMP @ Bus %g is %4.2f $/MWh generation cost and %4.2f $/MWh congestion cost\n', busnames(v) , genergy, conjcost(v));
+         fprintf(' The LMP @ Bus %g is %4.2f $/MWh generation cost and %4.2f $/MWh congestion cost\n', busnames(v) , genergy, conjcost(v));
     end
 end
 
-fprintf('\nThe objective value is %4.2f $/MWh\n', results.objval);
 
-fprintf('Line flow Table \n')
+
+fprintf('               Line flow Table \n')
 fprintf('   From Bus  ||    To Bus   ||   Line Flow \n\n')
 for v=1:length(lineflow)
         fprintf('%8.0f     ||%8.0f     ||%10.5f MW  \n', fb(v) , tb(v) , lineflow(v));
 end
+
+fprintf('\n The objective value is %4.2f $/h\n', results.objval);
