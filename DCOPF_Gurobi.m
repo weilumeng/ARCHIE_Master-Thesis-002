@@ -1,15 +1,10 @@
 clear;
-IEEE33bus;
-slack=1;
-gsf_matrix %calculate Generation Shift Factor Matrix
+IEEE33bus_modified;
+ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
         
-       
-nd=length(busdata(:,3));
-ng=length(gendata(:,1));
-        
-Ag=zeros(nbus,ng);
+Ag=zeros(nb,ng);
 
-for i=1:nbus
+for i=1:nb
     for j=1:ng
         if gendata(j,1)==i
             Ag(i,j)=1;
@@ -22,14 +17,14 @@ f=gencostdata(:,6)';
 Aeq=-ones(1,length(gendata(:,1)));
 beq=-sum(busdata(:,3));
 
-A1=ptdf*Ag;
+A1=PTDF*Ag;
        
 pd=busdata(:,3);
         
-B1=prat(1:length(branchdata(:,1)))+ptdf*pd;
-B2=prat(1:length(branchdata(:,1)))-ptdf*pd;
+b1=prat(1:length(branchdata(:,1)))+PTDF*pd;
+b2=prat(1:length(branchdata(:,1)))-PTDF*pd;
 A=[A1; -A1];
-b=[B1;B2];
+b=[b1;b2];
 
 lb=gendata(:,10);
 ub=gendata(:,9);
@@ -38,6 +33,7 @@ ub=gendata(:,9);
 
 
 genergy=lambda.eqlin
-conjcost=(lambda.ineqlin'*[-ptdf ; ptdf])'
+conjcost=(lambda.ineqlin'*[-PTDF ; PTDF])'
 lmp=genergy+conjcost
-lineflow=ptdf*(Ag*x-pd)
+lineflow=PTDF*(Ag*x-pd)
+

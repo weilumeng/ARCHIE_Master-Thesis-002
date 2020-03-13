@@ -32,7 +32,7 @@ y(ns,:)=[];
 y(:,ns)=[];
 
 %inverting y to form Bbus Matrix
-Bbus=inv(y);
+Bbus= y \ eye(size(y));
 
 %Adding zeros corresponding to slack bus row and column
 Xbus=[zeros(size(Bbus,1),1) Bbus];
