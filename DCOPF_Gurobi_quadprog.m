@@ -1,7 +1,9 @@
 clear;
-IEEE33bus_modified;
+IEEE118bus;
 ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
-        
+
+
+%Generator Bus Connection Matrix
 Ag=zeros(nb,ng);
 
 for i=1:nb
@@ -12,23 +14,24 @@ for i=1:nb
     end
 end
 
+%Setting up Matrices for the Quadratic Programming Solver
+f=gencostdata(:,6)';    %Cost function to minimize
+Aeq=-ones(1,length(gendata(:,1)));  %Generation Side of Pg=Pd Equation
+beq=-sum(busdata(:,3));             %Demand Side of Pg=Pd Equation
 
-f=gencostdata(:,6)';
-Aeq=-ones(1,length(gendata(:,1)));
-beq=-sum(busdata(:,3));
-
-A1=PTDF*Ag;
-       
-pd=busdata(:,3);
-        
+%Setting up Matrices for PTDF Formulation
+A1=PTDF*Ag;    
+pd=busdata(:,3);      
 b1=prat(1:length(branchdata(:,1)))+PTDF*pd;
 b2=prat(1:length(branchdata(:,1)))-PTDF*pd;
 A=[A1; -A1];
 b=[b1;b2];
 
+%Generation Limit for each generator
 lb=gendata(:,10);
 ub=gendata(:,9);
 
+%Quadratic cost functions for each generator
 Qmatrix=zeros(size(A,2),size(A,2));
 for i=1:length(gencostdata(:,5))
     if gencostdata(i,5)~=0
@@ -36,9 +39,11 @@ for i=1:length(gencostdata(:,5))
     end
 end
 
-%Quadratic Programming with Gurobi
+%Quadratic Programming with Gurobi Solver
 
-names = {'P0', 'P1', 'P2', 'P3', 'P4'};
+for i=1:length(gendata(:,1))
+names(i) = {num2str("P"+num2str(i))};
+end
 model.varnames = names;
 model.obj = f; 
 model.Q = [sparse(Qmatrix)];
@@ -67,33 +72,33 @@ conjcost=(lambda.ineqlin'*[-PTDF ; PTDF])';
 lmp=genergy+conjcost;
 lineflow=PTDF*(Ag*results.x-pd);
 
+%Printing out the Solution
 
 for v=1:length(names)
-fprintf('\n %s = %g\n', names{v}, results.x(v));
+fprintf('\n %s = %2.2f\n', names{v}, results.x(v));
 end
 
 for v=1:length(genergy)
-fprintf('\n Generation cost is %g\n\n', genergy);
+fprintf('\n Generation cost = %g $/MWh\n\n', genergy);
 end
 
-busnames=busdata(:,1);
+busnumber=busdata(:,1);
 
 for v=1:length(conjcost)
     if conjcost(v)~=0
-    fprintf(' Congestion Cost @ Bus %g is %4.2f $/h\n', busnames(v) , conjcost(v));
+    fprintf(' Congestion Cost @ Bus %g = %4.2f $/MWh\n', busnumber(v) , conjcost(v));
     end
 end
 
 fprintf(' LMP -- Bus Number || Generation Cost || Congestion Cost \n \n')
 for v=1:length(lmp)
         if lmp(v)~=0
-         fprintf(' The LMP @ Bus %g is %4.2f $/MWh generation cost and %4.2f $/MWh congestion cost\n', busnames(v) , genergy, conjcost(v));
+         fprintf(' The LMP @ Bus %2.2g is %4.2f $/MWh generation cost and %4.2f $/MWh congestion cost\n', busnumber(v) , genergy, conjcost(v));
     end
 end
 
 
-
-fprintf('               Line flow Table \n')
+fprintf('\n               Line flow Table \n')
 fprintf('   From Bus  ||    To Bus   ||   Line Flow \n\n')
 for v=1:length(lineflow)
         fprintf('%8.0f     ||%8.0f     ||%10.5f MW  \n', fb(v) , tb(v) , lineflow(v));

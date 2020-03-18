@@ -12,6 +12,12 @@ prat=branchdata(:,6);               %Rated line flow limit
 slack = find(busdata(:, 2) == 3);   %Finding the reference bus
     % Slack bus Distribution NOT WORKING PROPERLY FOR MORE THAN 1 SLACK
 
+%Tap Ratios
+tap=ones(nl,1);
+i=find(branchdata(:,9));
+tap(i)=branchdata(i,9);
+X= X ./ tap;
+
 
 %Checking the Data for number of slack buses; used for distribution of
 %weights
@@ -40,7 +46,8 @@ PTDF(:, noslack) = full(Bf(:, noref) / Bbusnew(noslack, noref));
 
 for i=1:length(prat)
     if prat(i)==0
-        prat(i)=gendata(ns,9);
+        slackgen=find(gendata(:,1) == ns);
+        prat(i)=gendata(slackgen,9);
     end
 end
 
