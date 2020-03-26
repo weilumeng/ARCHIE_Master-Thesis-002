@@ -72,8 +72,8 @@ congestioncost=(lambda.ineqlin'*[-PTDF ; PTDF])';
 lmp=generationcost+congestioncost;
 lineflow=PTDF*(Ag*results.x-pd);
 
-%Loss Factor
-lossfactor;
+%Loss Factor Script
+%lossfactor;
 
 %Printing out the Solution
 for v=1:length(names)
