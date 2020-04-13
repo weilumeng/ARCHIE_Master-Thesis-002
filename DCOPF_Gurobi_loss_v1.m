@@ -1,19 +1,21 @@
+%% Loading Data
 clear;
-maxiter=2;
-
-
 IEEE118bus;
-ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
 
+%% Generation Shift Factor/Power Transfer Distribution Matrix
+ptdf_matrix 
 
-%Generator Bus Connection Matrix
+%% Setting up the Data
+maxiter=9;
+
+% Generator Bus Connection Matrix
 Ag=zeros(nb,nb);
 for i=1:nb
-        for k=1:ng
+    for k=1:ng
             if gendata(k,1)==i
-                Ag(i,i)=1;
+                Ag(i,k)=1;
             end
-        end
+    end
 end
 
 %Setting up Matrices for the Quadratic Programming Solver
@@ -21,51 +23,47 @@ f=zeros(1,nb);
 for i=1:nb
     for j=1:length(gendata(:,6))
         if i==gendata(j,1)
-            f(i)=gencostdata(j,6);%Cost function to minimize
+            f(i)=gencostdata(j,6);  %Cost function to minimize
         end
     end
 end
 
+%Estimated Losses
+Ploss_est=0;
+LF_est=zeros(nb,1);
+DF_est=ones(nb,1);
+E_est=zeros(nb,1);
+
+%% Iteration starts here
+
 for iter=1:maxiter
 
-%Loss Factor Script
-if iter~=1
-lossfactor;
-end
-
-%Matrix Dimension gets too big
+% Generation Side of Pg=Pd Equation with Delivery Factor
 Aeq=zeros(1,nb);
 for i=1:nb
     for j=1:length(gendata(:,1))
-    if i==gendata(j,1)
-        Aeq(i)=1;
-    end
+        if i==gendata(j,1)
+            Aeq(i)=1;
+        end
     end
 end
 
-if iter~=1
-Aeq=Aeq.*DF';                               %Generation Side of Pg=Pd Equation with Delivery Factor
-beq=((DF'*busdata(:,3)));                   %Demand Side of Pg=Pd Equation with Delivery Factor
-beq=beq-Ptotalloss;                         %Demand Side of Pg=Pd Equation + Losses
-else
-%Aeq=ones(1,length(gendata(:,1)));           %1st Iteration without DF
-beq=sum(busdata(:,3));                      %1st Iteration without DF
-end
+Aeq=DF_est'.*Aeq;
+
+% Demand Side of Pg=Pd Equation with Delivery Factor and Active Power
+% Losses
+pd=busdata(:,3);
+demand=ones(1,nb)*(DF_est.*pd);             
+demand=demand-Ploss_est;                       
 
 %Setting up Matrices for PTDF Formulation
-A1=PTDF*Ag;    
-pd=busdata(:,3);
-if iter~=1
-b1=prat(1:length(branchdata(:,1)))+PTDF*(pd+E);
-b2=prat(1:length(branchdata(:,1)))-PTDF*(pd+E);
-else
 b1=prat(1:length(branchdata(:,1)))+PTDF*(pd);
 b2=prat(1:length(branchdata(:,1)))-PTDF*(pd);
-end
-A=[A1; -A1];
-b=[b1;b2];
+A=[PTDF; -PTDF];
+b=[b1; b2];
 
-%Generation limit for each generator
+
+% Generation limit for each generator
 lb=zeros(1,nb);
 ub=zeros(1,nb);
 for i=1:nb
@@ -78,7 +76,7 @@ for i=1:nb
 end
 
 
-%Quadratic cost functions for each generator
+% Quadratic cost functions for each generator
 Qmatrix=zeros(size(A,2),size(A,2));
 for i=1:nb
         for k=1:length(gencostdata(:,5))
@@ -90,17 +88,17 @@ for i=1:nb
         end
 end
 
-%Quadratic Programming with Gurobi Solver
+% Quadratic Programming with Gurobi Solver
 names=num2cell(zeros(1,nb));
 for i=1:nb
-names(i) = {num2str("P"+num2str(i))};%Cost function to minimize
+names(i) = {num2str("P"+num2str(i))};
 end
 model.varnames = names;
 model.obj = f; 
 model.Q = sparse(Qmatrix);
 model.A = [sparse(A); sparse(Aeq)]; % A must be sparse
 model.sense = [repmat('<',size(A,1),1); repmat('=',size(Aeq,1),1)];
-model.rhs = full([b(:); beq(:)]); % rhs must be dense
+model.rhs = full([b(:); demand(:)]); % rhs must be dense
 if ~isempty(lb)
     model.lb = lb;
 else
@@ -119,19 +117,27 @@ lambda.ineqlin = -results.pi(1:size(A,1));
 lambda.eqlin = results.pi((size(A,1)+1):end);
 
 
+
 %Generation Cost, Congestion Cost and Powerflow
 generationcost=lambda.eqlin;
-congestioncost=(lambda.ineqlin'*[-PTDF ; PTDF])';
+congestioncost=(lambda.ineqlin'*[-PTDF; PTDF])';
 lmp=generationcost+congestioncost;
-lineflow=PTDF*(Ag*results.x-pd);
-if iter~=1
-losscost=lambda.eqlin*(DF-1);
-end
-end
 
+% Net injection/withdrawl
+pn=results.x-pd;
+
+lineflow=PTDF*pn;
+
+%Loss Factor Script
+lossfactor;
+
+losscost=lambda.eqlin*(DF-1);
+
+end
 
 
 %Printing out the Solution
+if iter==maxiter
 for v=1:length(names)
 fprintf('\n %s = %2.2f MW\n', names{v}, results.x(v));
 end
@@ -163,3 +169,4 @@ for v=1:length(lineflow)
 end
 
 fprintf('\n The objective value is %4.2f $/h\n', results.objval);
+end

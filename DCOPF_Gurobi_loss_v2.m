@@ -1,9 +1,9 @@
+%% Loading Data
 clear;
-maxiter=4;
-
-
-IEEE118bus;
+PJM5Bus_modified;
 ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
+%% Setting up the Data
+maxiter=9;
 
 
 %Generator Bus Connection Matrix
@@ -16,45 +16,30 @@ for i=1:nb
     end
 end
 
+%Estimated Losses
+Ploss_est=0;
+LF_est=zeros(nb,1);
+DF_est=ones(nb,1);
+E_est=zeros(nb,1);
+
 %Setting up Matrices for the Quadratic Programming Solver
 f=gencostdata(:,6)';%Cost function to minimize
 
 for iter=1:maxiter
 
-%Loss Factor Script
-if iter~=1
-lossfactor;
-end
+Aeq=ones(1,length(gendata(:,1))).*DF_est';
+Aeq(2)=Aeq(1);
+beq=ones(1,nb)*(busdata(:,3).*DF_est);                  %Demand Side of Pg=Pd Equation with Delivery Factor
+beq=beq-Ploss_est;                                      %Demand Side of Pg=Pd Equation + Losses
 
-%Matrix Dimension gets too big
-%Aeq=zeros(1,nb);
-%for i=1:nb
-%    for j=1:length(gendata(:,1))
-%    if i==gendata(j,1)
-%        Aeq(i)=1;
-%    end
-%    end
-%end
-
-if iter~=1
-Aeq=ones(1,length(gendata(:,1))).*DF';                               %Generation Side of Pg=Pd Equation with Delivery Factor
-beq=((DF'*busdata(:,3)));                   %Demand Side of Pg=Pd Equation with Delivery Factor
-beq=beq-Ptotalloss;                         %Demand Side of Pg=Pd Equation + Losses
-else
-Aeq=ones(1,length(gendata(:,1)));           %1st Iteration without DF
-beq=sum(busdata(:,3));                      %1st Iteration without DF
-end
 
 %Setting up Matrices for PTDF Formulation
 A1=PTDF*Ag;    
 pd=busdata(:,3);
-if iter~=1
-b1=prat(1:length(branchdata(:,1)))+PTDF*(pd-E);
-b2=prat(1:length(branchdata(:,1)))-PTDF*(pd-E);
-else
+
 b1=prat(1:length(branchdata(:,1)))+PTDF*(pd);
 b2=prat(1:length(branchdata(:,1)))-PTDF*(pd);
-end
+
 A=[A1; -A1];
 b=[b1;b2];
 
@@ -103,9 +88,18 @@ lambda.eqlin = results.pi((size(A,1)+1):end);
 generationcost=lambda.eqlin;
 congestioncost=(lambda.ineqlin'*[-PTDF ; PTDF])';
 lmp=generationcost+congestioncost;
-lineflow=PTDF*(Ag*results.x-pd);
+
+
+pn=Ag*results.x-pd;
+pn(1)=results.x(1)+results.x(2)-pd(1);
+pn(2)=-pd(2);
+
+lineflow=PTDF*(pn);
+
+lossfactor;
+
 if iter~=1
-losscost=lambda.eqlin*(DF-1);
+losscost=lambda.eqlin*(DF_est-1);
 end
 end
 

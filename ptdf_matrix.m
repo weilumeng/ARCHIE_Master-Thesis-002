@@ -1,4 +1,4 @@
-%Acquiring Data
+%% Acquiring Data
 
 nl=size(branchdata(:,1),1);         %Number of lines/branches
 nb=size(busdata(:,1),1);            %Number of buses
@@ -10,10 +10,11 @@ G= status ./ branchdata(:,3);       %Conductance of the line
 B= status ./ branchdata(:,4);       %Susceptance of the line
 prat=branchdata(:,6);               %Rated line flow limit
 slack = find(busdata(:, 2) == 3);   %Finding the reference bus
+                                    %Demand of each bus
 % Slack bus Distribution NOT WORKING PROPERLY - currently no need since we
 % only have 1 slack in the test systems anyway
 
-%Tap Ratios
+% Tap Ratios
 tap=ones(nl,1);
 i=find(branchdata(:,9));
 tap(i)=branchdata(i,9);
@@ -43,13 +44,11 @@ PTDF(:, noslack) = full(Bf(:, noref) / Bbusnew(noslack, noref));
 
 
 %Checking for unrestricted line flows - if line flow at line i is  
-%unrestricted (=0) set it to Pmax of the slack bus generator (might be
-%wrong for some cases but works for now)
+%unrestricted (=0) set it to Inf
 
 for i=1:length(prat)
     if prat(i)==0
-        slackgen=find(gendata(:,1) == ns);
-        prat(i)=gendata(slackgen,9);
+        prat(i)=Inf;
     end
 end
 

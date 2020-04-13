@@ -1,12 +1,4 @@
-%Net injections
-pn=Ag*results.x-pd;                                         %net injections/withdrawals
-pn=pn./baseMVA;                                             %p.u. values for the lineflow
-
-%Line flow
-pijk=(PTDF*Ag*results.x-PTDF*pd)./baseMVA;                  %lineflow in p.u.
-pijk_quad=pijk.^2;                                          %line transfer quadriert (lineflow)
-
-%Resistance of the lines
+%% Resistance of the lines
 R=1./G;                                                     %Resistance of the lines
 for i=1:length(branchdata(:,1))                             %R=0, wenn G=0 und ansonsten R=Inf annimmt 
     if R(i)==Inf
@@ -14,51 +6,67 @@ for i=1:length(branchdata(:,1))                             %R=0, wenn G=0 und a
     end
 end
 
-%Aggregated loss of the system
-Ploss=R.*(pijk_quad);                                       %Ploss p.u. for each branch
-Ploss=Ploss*100;                                            %Ploss MW for each branch
-Ptotalloss=ones(1,length(Ploss))*(Ploss);                   %Total Ploss in MW
+%% Aggregated loss of the system
 
 
+%Line flow in p.u. quadriert
+lineflow_base=lineflow./baseMVA;
+lineflow_quad=lineflow_base.*lineflow_base;
+pn_base=pn./baseMVA;
 
-%Loss Factor (not working)
+
+%Ploss for each branch in MW
+Ploss=lineflow_base.*R;
+Ptotalloss_base=(lineflow_quad'*R);
+Ptotalloss=Ptotalloss_base.*baseMVA;
+
+
+%% Loss and Delivery Factor
+
+        
 LF=zeros(nb,1);
 for i=1:nb
-    for m=1:nl
-        if full(Cft(m,i))~=0
-                LF(i)=LF(i)+2*R(m)*PTDF(m,i)*pijk(m);
+    for k=1:nl
+        for j=1:nb
+            LF(i)=LF(i)+(2*R(k)*PTDF(k,i)*((PTDF(k,j)*pn_base(j))));
         end
     end
 end
 
-%Working loss factor
-LFwhat=zeros(nb,1);
-for i=1:nb
-LFwhat(i)=sum(2*pijk.*PTDF(:,i).*R);
-end
+
 
 %Delivery Factor
-DF=1-LFwhat;
+DF=1-LF;
 
 
-%Fictinous Nodal Demand
+
+%% Fictinous Nodal Demand
 E=zeros(nb,1);
 for i=1:nb
-    for m=1:nl
-        if full(Cft(m,i))~=0
-        E(i)=E(i)+0.5*Ploss(m);
+    for k=1:nl
+        if full(Cft(k,i))~=0
+        E(i)=E(i)+0.5*baseMVA*lineflow_quad(k)*R(k);
         end
     end
 end
 
-%Loss Distribution Factor
-LDF=zeros(nb,1);
-for i=1:nb
-    LDF(i)=E(i)/sum(E);
-end
+
+
+%% Abbruchkriterien
+
+
+%Sollte gegen Null gehen
+DifferencePloss=abs(Ptotalloss-Ploss_est);
+ 
 
 %Estimated LF, DF, E and Ploss
-Ploss_est=0;
-LF_est=0;
-DF_est=1;
-E_est=0;
+Ploss_est=Ptotalloss;
+LF_est=LF;
+DF_est=DF;
+E_est=E;
+
+
+%Das sollte gleich losses sein
+scheduled_gen=sum(results.x);
+scheduled_losses=sum(results.x-pd);
+scheduled_RESULT=ones(1,nb)*(results.x-pd)-Ploss_est;
