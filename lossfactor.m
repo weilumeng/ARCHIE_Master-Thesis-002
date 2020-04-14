@@ -23,7 +23,7 @@ Ptotalloss=Ptotalloss_base.*baseMVA;
 
 %% Loss and Delivery Factor
 
-        
+      
 LF=zeros(nb,1);
 for i=1:nb
     for k=1:nl
@@ -34,10 +34,8 @@ for i=1:nb
 end
 
 
-
 %Delivery Factor
 DF=1-LF;
-
 
 
 %% Fictinous Nodal Demand
@@ -49,7 +47,6 @@ for i=1:nb
         end
     end
 end
-
 
 
 %% Abbruchkriterien
@@ -68,5 +65,5 @@ E_est=E;
 
 %Das sollte gleich losses sein
 scheduled_gen=sum(results.x);
-scheduled_losses=sum(results.x-pd);
-scheduled_RESULT=ones(1,nb)*(results.x-pd)-Ploss_est;
+scheduled_losses=sum(Ag*results.x-pd);
+scheduled_RESULT=ones(1,nb)*(Ag*results.x-pd)-Ploss_est;

@@ -3,7 +3,7 @@ clear;
 PJM5Bus_modified;
 ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
 %% Setting up the Data
-maxiter=9;
+maxiter=20;
 
 
 %Generator Bus Connection Matrix
@@ -27,8 +27,14 @@ f=gencostdata(:,6)';%Cost function to minimize
 
 for iter=1:maxiter
 
-Aeq=ones(1,length(gendata(:,1))).*DF_est';
-Aeq(2)=Aeq(1);
+Aeq=ones(1,ng);
+for i=1:nb
+    for j=1:length(gendata(:,1))
+        if i==gendata(j,1)
+            Aeq(j)=1*DF_est(i);
+        end
+    end
+end
 beq=ones(1,nb)*(busdata(:,3).*DF_est);                  %Demand Side of Pg=Pd Equation with Delivery Factor
 beq=beq-Ploss_est;                                      %Demand Side of Pg=Pd Equation + Losses
 
@@ -37,8 +43,8 @@ beq=beq-Ploss_est;                                      %Demand Side of Pg=Pd Eq
 A1=PTDF*Ag;    
 pd=busdata(:,3);
 
-b1=prat(1:length(branchdata(:,1)))+PTDF*(pd);
-b2=prat(1:length(branchdata(:,1)))-PTDF*(pd);
+b1=prat(1:length(branchdata(:,1)))+PTDF*(pd+E_est);
+b2=prat(1:length(branchdata(:,1)))-PTDF*(pd+E_est);
 
 A=[A1; -A1];
 b=[b1;b2];
@@ -90,9 +96,8 @@ congestioncost=(lambda.ineqlin'*[-PTDF ; PTDF])';
 lmp=generationcost+congestioncost;
 
 
-pn=Ag*results.x-pd;
-pn(1)=results.x(1)+results.x(2)-pd(1);
-pn(2)=-pd(2);
+pn=Ag*results.x-pd-E_est;
+
 
 lineflow=PTDF*(pn);
 
