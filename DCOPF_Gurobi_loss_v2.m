@@ -8,7 +8,7 @@ run(fullfile(casedata))
 loadprofiledata=readtable('202002110000.xlsx', 'PreserveVariableNames', true, 'Range', 'C8:C103', 'ReadVariableNames', true);
 loadcurve=table2array(loadprofiledata(:,1));
 loadcurve=str2double((loadcurve));
-loadcurve_base=loadcurve./max(loadcurve);
+loadcurve_base=loadcurve./mean(loadcurve);
 
 ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
 %% Setting up the Data
