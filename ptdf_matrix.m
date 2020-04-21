@@ -3,7 +3,7 @@
 nl=size(branchdata(:,1),1);         %Number of lines/branches
 nb=size(busdata(:,1),1);            %Number of buses
 ng=size(gendata(:,1),1);            %Number of generators
-status = branchdata(:, 11);         %Checks the status of active/inactive lines
+status = branchdata(:,11);          %Checks the status of active/inactive lines
 fb=branchdata(:,1);                 %From Bus ...
 tb=branchdata(:,2);                 %To Bus ...
 G= status ./ branchdata(:,3);       %Conductance of the line

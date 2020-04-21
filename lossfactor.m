@@ -16,26 +16,19 @@ pn_base=pn./baseMVA;
 
 
 %Ploss for each branch in MW
-Ploss=lineflow_base.*R;
+Ploss=lineflow_quad.*R*baseMVA;
 Ptotalloss_base=(lineflow_quad'*R);
-Ptotalloss=Ptotalloss_base.*baseMVA;
+Ptotalloss=Ptotalloss_base*baseMVA;
 
 
 %% Loss and Delivery Factor
 
-      
-LF=zeros(nb,1);
-for i=1:nb
-    for k=1:nl
-        for j=1:nb
-            LF(i)=LF(i)+(2*R(k)*PTDF(k,i)*((PTDF(k,j)*pn_base(j))));
-        end
-    end
-end
+
+LFx=(2.*lineflow_base.*PTDF)'*R;
 
 
 %Delivery Factor
-DF=1-LF;
+DF=1-LFx;
 
 
 %% Fictinous Nodal Demand
@@ -56,11 +49,13 @@ end
 DifferencePloss=abs(Ptotalloss-Ploss_est);
  
 
+
 %Estimated LF, DF, E and Ploss
-Ploss_est=Ptotalloss;
-LF_est=LF;
-DF_est=DF;
-E_est=E;
+Ploss_est=w*Ploss_est+(1-w)*Ptotalloss;
+LF_est=LFx;
+DF_est=w*DF_est+(1-w)*DF;
+E_est_old=w*E_est_old+(1-w)*E_est;
+E_est=w*E_est+(1-w)*E;
 
 
 %Das sollte gleich losses sein

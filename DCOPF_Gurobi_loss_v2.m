@@ -1,9 +1,21 @@
 %% Loading Data
 clear;
-PJM5Bus_modified;
+tic
+casedata='IEEE30bus.m';
+run(fullfile(casedata))
+
+
+loadprofiledata=readtable('202002110000.xlsx', 'PreserveVariableNames', true, 'Range', 'C8:C103', 'ReadVariableNames', true);
+loadcurve=table2array(loadprofiledata(:,1));
+loadcurve=str2double((loadcurve));
+loadcurve_base=loadcurve./max(loadcurve);
+
 ptdf_matrix %Generation Shift Factor/Power Transfer Distribution Matrix
 %% Setting up the Data
-maxiter=20;
+step=0.25;
+iter=1;
+maxiter=30;
+minute=0;
 
 
 %Generator Bus Connection Matrix
@@ -16,22 +28,32 @@ for i=1:nb
     end
 end
 
+while step<24
+run(fullfile(casedata))
+busdata(:,3)=busdata(:,3)*loadcurve_base(step*4);
+iter=1;
+   
+
 %Estimated Losses
 Ploss_est=0;
 LF_est=zeros(nb,1);
 DF_est=ones(nb,1);
 E_est=zeros(nb,1);
+E_est_old=zeros(nb,1);
+gendispatch=zeros(ng,maxiter);
+mismatchdispatch=ones(ng,maxiter);
 
 %Setting up Matrices for the Quadratic Programming Solver
 f=gencostdata(:,6)';%Cost function to minimize
 
-for iter=1:maxiter
+    
+while iter~=maxiter
 
 Aeq=ones(1,ng);
 for i=1:nb
-    for j=1:length(gendata(:,1))
-        if i==gendata(j,1)
-            Aeq(j)=1*DF_est(i);
+   for j=1:ng
+        if gendata(j,1)==i
+            Aeq(j)=DF_est(i);
         end
     end
 end
@@ -49,11 +71,14 @@ b2=prat(1:length(branchdata(:,1)))-PTDF*(pd+E_est);
 A=[A1; -A1];
 b=[b1;b2];
 
-%Generation limit for each generator
+
+%% Generation limit for each generator
 lb=gendata(:,10);
 ub=gendata(:,9);
 
-%Quadratic cost functions for each generator
+
+
+%% Quadratic cost functions for each generator
 Qmatrix=zeros(size(A,2),size(A,2));
 for i=1:length(gencostdata(:,5))
     if gencostdata(i,5)~=0
@@ -79,6 +104,8 @@ else
 end
 if ~isempty(ub)
     model.ub = ub;
+else
+    model.ub= inf(size(model.A,2),1);
 end
 
 gurobi_write(model, 'DCOPF_QP.lp');
@@ -96,20 +123,50 @@ congestioncost=(lambda.ineqlin'*[-PTDF ; PTDF])';
 lmp=generationcost+congestioncost;
 
 
+for i=iter:iter
+gendispatch(:,i)=results.x;
+end
+if iter~=1
+mismatchdispatch=(gendispatch(:,iter-1)-gendispatch(:,iter)).^2;
+end
+
 pn=Ag*results.x-pd-E_est;
 
+%% Damping parameter
+w=0.0;
+if iter>1
+pn_old=Ag*gendispatch(:,iter-1)-pd-E_est_old;
+pn=w*pn_old+(1-w)*pn;
+end
 
-lineflow=PTDF*(pn);
+
+lineflow=PTDF*pn;
+if iter>1
+lineflow_old=PTDF*pn_old;
+lineflow=w*lineflow_old+(1-w)*lineflow;
+end
+
 
 lossfactor;
+checkiter=iter;
 
 if iter~=1
 losscost=lambda.eqlin*(DF_est-1);
+lmp=lmp+losscost;
 end
+
+if any(abs(mismatchdispatch) > 1e-8)
+    iter=iter+1;
+else
+    iter=maxiter;
+end
+
 end
 
 
 
+
+if iter==maxiter || iter==2
 %Printing out the Solution
 for v=1:length(names)
 fprintf('\n %s = %2.2f MW\n', names{v}, results.x(v));
@@ -142,3 +199,21 @@ for v=1:length(lineflow)
 end
 
 fprintf('\n The objective value is %4.2f $/h\n', results.objval);
+end
+
+
+f1=num2str(minute*60);
+f5=num2str((minute+0.25)*60);
+f2='load at timestep - hour';
+f3=num2str(floor(step-0.25));
+f4='- minute -';
+filename=strcat(f2,f3,f4,f1,f4,f5);
+f=fullfile('loadprofile',filename);
+save(f);
+minute=minute+0.25;
+if minute > 0.75
+    minute=0;
+end
+step=step+0.25;
+end
+toc
