@@ -9,101 +9,92 @@ tb=branchdata(:,2);                 %To Bus ...
 G= status ./ branchdata(:,3);       %Conductance of the line
 B= status ./ branchdata(:,4);       %Susceptance of the line
 Bc = status .* branchdata(:, 5);    %total line charging susceptance
-Gs = busdata(:,5);
-Bs = busdata(:,6);
+Gs = busdata(:,5);                  %Conductance Shunt
+Bs = busdata(:,6);                  %Susceptance Shunt
 prat=branchdata(:,6);               %Rated line flow limit
 vmin=busdata(:,13);                 %max voltage in p.u.
 vmax=busdata(:,12);                 %min voltage in p.u.
-slack = find(busdata(:, 2) == 3);   %Finding the reference bus
+slack = find(busdata(:, 2) == 3);   %Finding the reference/slack bus
+noslack = find((1:nb)' ~= slack);
+noslack2= find((1:(2*nb))' ~= slack);
+iline = [(1:nl)'; (1:nl)'];
+vbase=busdata(:,8);
+
 
 
 %% Tap Ratios
 tap=ones(nl,1);
 i=find(branchdata(:,9));
 tap(i)=branchdata(i,9);
+tap = tap .* exp(1j*pi/180 * branchdata(:, 10));
+
+G=status.*branchdata(:,3)./(branchdata(:,4).^2+branchdata(:,3).^2);
+B=-status.*branchdata(:,4)./(branchdata(:,3).^2+branchdata(:,4).^2);
 B= B ./ tap;
 G= G ./ tap;
-                                                    
-for i=1:length(branchdata(:,1))                              
-    if G(i)==Inf
-        G(i)=0;
-    end
-end
-%% PTDF Matrix Construction
 
-iline = [(1:nl)'; (1:nl)'];
+Y_res= status ./ (branchdata(:,3) + 1j*branchdata(:,4));
+
+%%YBUS
+Ys = status ./ (branchdata(:, 3) + 1j * branchdata(:, 4));
+Ytt = Ys + 1j*Bc/2;
+Yff = Ytt ./ (tap .* conj(tap));
+Yft = - Ys ./ conj(tap);
+Ytf = - Ys ./ tap;
+
+
+Ysh = (busdata(:, 5) + 1j * busdata(:, 6)) / baseMVA; %% vector of shunt admittances
+
+Yf = sparse(iline, [fb; tb], [Yff; Yft], nl, nb);
+Yt = sparse(iline, [fb; tb], [Ytf; Ytt], nl, nb);
+
+%% build Ybus
+Ybus = sparse([fb;fb;tb;tb], [fb;tb;fb;tb], [Yff;Yft;Ytf;Ytt], nb, nb) + ... %% branch admittances
+            sparse(1:nb, 1:nb, Ysh, nb, nb);        %% shunt admittance
+
+%% GSF Matrix Construction
+
 Cft = sparse(iline, [fb;tb], [ones(nl, 1); -ones(nl, 1)], nl, nb);
+
 Bf = sparse(iline, [fb; tb], [B; -B], nl, nb);
-Bbus = Cft' * Bf;
-noref   = (2:nb)';      %% use bus 1 for voltage angle reference
-noslack = find((1:nb)' ~= slack);
-noslack2= find((1:(2*nb))' ~= slack);
-
-%% recommended version
-PTDF = zeros(nl, nb);
-PTDF(:, noslack) = full(Bf(:, noref) / Bbus(noslack, noref));
-
-
-%% Constructing the Bus Matrices w/ shunts
-Bf_shunt = sparse(iline, [fb; tb], [B; -B], nl, nb);
-Bbus_shunt = Cft' * Bf_shunt;
-
-%Adding shunts (not sure if thats correct)
-for i=1:nb
-    for j=1:nb
-        if i==branchdata(j,1)
-            if branchdata(j,5)~=0
-                Bbus_shunt(i,i)=Bbus_shunt(i,i)+(1/(branchdata(j,5)/2));
-           end
-        end
-    end
-end
-
 Gf = sparse(iline, [fb; tb], [G; -G], nl, nb);
-Gbus = Cft' * Gf;
+Y_series = sparse(iline, [fb; tb], [Y_res; -Y_res], nl, nb);
 
-Gf_shunt = sparse(iline, [fb; tb], [G; -G], nl, nb);
-Gbus_shunt = Cft' * Gf_shunt;
 
-% Adding shunts (not sure if thats correct)
-for i=1:nb
-    for j=1:nb
-        if i==branchdata(j,1)
-            if branchdata(j,5)~=0
-                Gbus_shunt(i,i)=Gbus_shunt(i,i)+(1/(branchdata(j,5)/2));
-            end
-        end
-    end
-end
+Bf_new=imag(Y_series);
+Gf_new=real(Y_series);
+
+
+%% Constructing the Bus Matrices
+Gbus = real(Ybus);
+Bbus = imag(Ybus);
+
+GP = Gbus;
+BD = diag(sum(Bbus));             %shunt elements
+BP = -Bbus + BD;
+BQ = -Bbus;
+GQ = -Gbus;                       %GQ approxiately equals -Gbus
 
 %% Constructing the Inverse of C
-C=[Bbus -Gbus_shunt;Gbus Bbus_shunt];
-
+C=[BP GP;GQ BQ];
+Cinverse=C(noslack2,noslack2)\eye(2*nb-1);
 
 % inverted C --> Xmat filled with zeros at slack bus row and column
-
-Xmat=zeros(2*nb,2*nb);
-Xmat(noslack2,noslack2)=-(C(noslack2,noslack2)\eye(2*nb-1));
+X=zeros(2*nb,2*nb);
+X(noslack2,noslack2)=Cinverse;
 
 
 %% Constructing new partial GSF matrices 
-
-GSF_PP =  full(Gf * Xmat(nb+1:end,1:nb))    -full(Bf * Xmat(1:nb,1:nb));
-GSF_PQ =  full(Gf * Xmat(nb+1:end,nb+1:end))-full(Bf * Xmat(1:nb,nb+1:end));
-GSF_QP = -full(Gf * Xmat(1:nb,1:nb))        -full(Bf * Xmat(nb+1:end,1:nb));
-GSF_QQ = -full(Gf * Xmat(1:nb,nb+1:end))    -full(Bf * Xmat(nb+1:end,nb+1:end));
+GSF_PP =  full( Gf *  X(nb+1:end,1:nb)      -Bf * X(1:nb,1:nb));
+GSF_PQ =  full( Gf *  X(nb+1:end,nb+1:end)  -Bf * X(1:nb,nb+1:end));
+GSF_QP =  full(-Gf *  X(1:nb,1:nb)          -Bf * X(nb+1:end,1:nb));
+GSF_QQ =  full(-Gf *  X(1:nb,nb+1:end)      -Bf * X(nb+1:end,nb+1:end));
 
 
 %Checking for unrestricted line flows - if line flow at line i is  
 %unrestricted (=0) set it to Inf
-
 for i=1:length(prat)
     if prat(i)==0
         prat(i)=Inf;
     end
 end
-
-
-
-G= status ./ branchdata(:,3);
-G= G ./ tap;

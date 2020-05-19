@@ -4,23 +4,11 @@ tic
 casedata='IEEE30bus.m';
 run(fullfile(casedata))
 
-%% Loadcurve
-
-%loadprofiledata=readtable('202002110000.xlsx', 'PreserveVariableNames', true, 'Range', 'C8:C103', 'ReadVariableNames', true);
-%loadcurve=table2array(loadprofiledata(:,1));
-%loadcurve=str2double(loadcurve);
-%loadcurve_base=loadcurve./mean(loadcurve);
 
 %% Generation Shift / Power Transfer Distribution Matrix
 
 run(fullfile('ptdf_matrix_Q.m'))
 
-%% Iteration Setup
-
-%step=0.25;
-iter=1;
-maxiter=2;
-%minute=0;
 
 %% Generator Bus Connection Matrix
 
@@ -33,68 +21,59 @@ for i=1:nb
     end
 end
 
-%% Loadcurve timesteps
-
-%while step<24
-%run(fullfile(casedata))
-%busdata(:,3)=busdata(:,3)*loadcurve_base(step*4);
-   
-
-%% Estimated Losses
-Ploss_est=0;
-Qloss_est=0;
-LF_est=zeros(nb,1);
-DF_est=ones(nb,1);
-E_est=zeros(nb,1);
-E_est_old=zeros(nb,1);
-gendispatch=zeros(ng,maxiter);
-mismatchdispatch=ones(ng,maxiter);
 
 %% Setting up Matrices for the Quadratic Programming Solver
 % Cost function to minimize
 p_cost=gencostdata(:,6)';
-q_cost=0.0*gencostdata(:,6)'; %% for now 10% of active power costs
+q_cost=0.0*gencostdata(:,6)'; %% for now 0% of active power costs
 
-%% Iteration for the loss formulation starts here
-
-while iter~=maxiter
 
 % Assigning the delivery factors to the generation units
 Aeq=ones(1,ng);
 for i=1:nb
    for j=1:ng
         if gendata(j,1)==i
-            Aeq(j)=DF_est(i);
+            Aeq(j)=1;
         end
     end
 end
 
 % Demand with Delivery Factor
-p_demand=ones(1,nb)*(busdata(:,3).*DF_est);
-q_demand=ones(1,nb)*(busdata(:,4).*DF_est);
-% Demand + Losses
-p_demand=p_demand-Ploss_est;
-q_demand=q_demand-Qloss_est;
+p_demand=ones(1,nb)*busdata(:,3);
+q_demand=ones(1,nb)*busdata(:,4)-ones(1,nb)*Bs;
 
 %% Setting up Matrices for GSF Formulation
 A1=GSF_PP*Ag;
 A2=GSF_PQ*Ag;
 pd=busdata(:,3);
-qd=busdata(:,4);
+qd=busdata(:,4)-Bs;
 
-b1=prat(1:length(branchdata(:,1)))+GSF_PP*(pd+E_est)+GSF_PQ*(qd);
-b2=prat(1:length(branchdata(:,1)))-GSF_PP*(pd+E_est)-GSF_PQ*(qd);
+b1=prat(1:length(branchdata(:,1)))+GSF_PP*(pd)+GSF_PQ*(qd);
+b2=prat(1:length(branchdata(:,1)))-GSF_PP*(pd)-GSF_PQ*(qd);
 
 A_P=[A1; -A1];
 A_Q=[A2; -A2];
 b=[b1;b2];
 
+%% Voltage formulation
+% Active power voltage coupling
+AP_Voltage=(Xmat(nb+1:end,1:nb)./baseMVA)*Ag;
+
+% Reactive power voltage coupling
+AQ_Voltage=(Xmat(nb+1:end,nb+1:end)./baseMVA)*Ag;
+
+
+B_voltage_max=vmax+Xmat(nb+1:end,1:nb)*pd./baseMVA+Xmat(nb+1:end,nb+1:end)*qd./baseMVA;
+
+B_voltage_min=vmin+Xmat(nb+1:end,1:nb)*pd+Xmat(nb+1:end,nb+1:end)*qd;
 
 %% Generation limit for each generator
 p_lb=gendata(:,10);
 p_ub=gendata(:,9);
 q_lb=gendata(:,5);
 q_ub=gendata(:,4);
+
+%q_ub=[-5.4; 1.8; 34.5; 32.5; 7; 37.5];
 
 
 %% Quadratic cost functions for each generator
@@ -117,9 +96,9 @@ end
 model.varnames = names;
 model.obj = [p_cost zeros(1,length(p_cost))];
 model.Q = sparse(Qmatrix);
-model.A = [sparse(A_P) sparse(A_Q);sparse(Aeq) sparse(zeros(1,size(Aeq,2))); sparse(zeros(1,size(Aeq,2))) sparse(Aeq)]; % A must be sparse
-model.sense = [repmat('<',size(A_P,1),1); repmat('=',size(Aeq,1),1); repmat('=',size(Aeq,1),1)];
-model.rhs = full([b(:);p_demand(:);q_demand(:)]); % rhs must be dense
+model.A = [sparse(A_P) sparse(A_Q);sparse(AP_Voltage) sparse(AQ_Voltage);sparse(AP_Voltage) sparse(AQ_Voltage);sparse(Aeq) sparse(zeros(1,size(Aeq,2))); sparse(zeros(1,size(Aeq,2))) sparse(Aeq)];
+model.sense = [repmat('<',size(A_P,1),1); repmat('<',size(AP_Voltage,1),1); repmat('<',size(AQ_Voltage,1),1);repmat('=',size(Aeq,1),1); repmat('=',size(Aeq,1),1)];
+model.rhs = full([b(:);B_voltage_min(:); B_voltage_max(:); p_demand(:);q_demand(:)]);
 if ~isempty(p_lb)
     model.lb = [p_lb; q_lb];
 else
@@ -140,7 +119,8 @@ results = gurobi(model);
 lambda.lower = max(0,results.rc);
 lambda.upper = -min(0,results.rc);
 lambda.ineqlin = -results.pi(1:size(A_P,1));
-lambda.eqlin = results.pi((size(A_P,1)+1):end);
+lambda.ineqlin_voltage= -results.pi(size(A_P,1)+1:end-2);
+lambda.eqlin = results.pi(end-2:end);
 
 
 %% Generation Cost, Congestion Cost and LMP for each bus
@@ -150,115 +130,33 @@ q_congestioncost=(lambda.ineqlin'*[-GSF_PQ ; GSF_PQ])';
 p_lmp=generationcost(1)+p_congestioncost;
 q_lmp=generationcost(2)+q_congestioncost;
 
-%% Saving the generation dispatch results at each iteration
-for i=iter:iter
-gendispatch(:,i)=results.x(1:ng);
-end
-if iter~=1
-mismatchdispatch=(gendispatch(:,iter-1)-gendispatch(:,iter)).^2;
-end
 
 %% Net injections
-pn=Ag*results.x(1:ng)-pd-E_est;
+pn=Ag*results.x(1:ng)-pd;
 qn=Ag*results.x(ng+1:end)-qd;
 
 
-%V1=Xmat(6,1:5)*pn./baseMVA+Xmat(6,6:end)*qn./baseMVA;
-%V2=Xmat(7,1:5)*pn./baseMVA+Xmat(7,6:end)*qn./baseMVA;
-%V3=Xmat(36,1:33)*pn;
+Voltageatbus=Xmat(nb+1:end,1:nb)*pn+Xmat(nb+1:end,nb+1:end)*qn;
 
-%% Damping parameter (necessary for >100 busses)
-w=0.0;
-if iter>1
-pn_old=Ag*gendispatch(:,iter-1)-pd-E_est_old;
-pn=w*pn_old+(1-w)*pn;
+V1=zeros(1,1);
+for k=1:nb
+    V1=V1+Xmat(nb+1,k)*pn(k)+Xmat(nb+1,nb+k)*qn(k);
 end
+V13=zeros(1,1);
+for k=1:nb
+    V13=V13+Xmat(nb+13,k)*pn(k)+Xmat(nb+13,nb+k)*qn(k);
+end
+
+Voltagecostmin=(lambda.ineqlin_voltage(1:nb)'*Xmat(nb+1:end,nb+1:end))';
+
+Voltagecostmax=(lambda.ineqlin_voltage(nb+1:end)'*Xmat(nb+1:end,nb+1:end))';
+
 
 %% Lineflow based on GSF_PP and net injections
-P_lineflow=GSF_PP*pn+GSF_PQ*qn;
-Q_lineflow=GSF_QQ*qn+GSF_QP*pn;
+P_lineflow=GSF_PP*pn;
+PQ_lineflow=GSF_PQ*qn;
+Q_lineflow=GSF_QQ*qn;
+QP_lineflow=GSF_QP*pn;
 
-if iter>1
-lineflow_old=GSF_PP*pn_old;
-P_lineflow=w*lineflow_old+(1-w)*P_lineflow;
-end
-
-%% Loss formulation
-run(fullfile('lossfactor_Q.m'));
-
-%% Checking at which iteration the loss formulation converges
-checkiter=iter;
-
-%% Adding loss costs to LMPs
-if iter~=1
-losscost=lambda.eqlin*(DF_est-1);
-p_lmp=p_lmp+losscost;
-end
-
-%% Criterion to stop further iterations
-if any(abs(mismatchdispatch) > 1e-8)
-    iter=iter+1;
-else
-    iter=maxiter;
-end
-
-end
-
-
-%% Printing out the solutions
-
-%if iter==maxiter || iter==2
-if iter>maxiter
-%Printing out the Solution
-for v=1:length(names)
-fprintf('\n %s = %2.2f MW\n', names{v}, results.x(v));
-end
-
-fprintf('\n Generation cost = %g $/MWh\n\n', generationcost);
-
-busnumber=busdata(:,1);
-
-for v=1:length(p_congestioncost)
-    if p_congestioncost(v)~=0
-    fprintf(' Congestion Cost @ Bus %g = %4.2f $/MWh\n', busnumber(v) , p_congestioncost(v));
-    end
-end
-
-fprintf('\n\n   LMP -- Bus Number ||    Generation Cost ||  Congestion Cost \n \n')
-for v=1:length(p_lmp)
-        if p_lmp(v)~=0
-         fprintf(' The LMP @ Bus %2.4g is %4.2f $/MWh generation cost and %4.2f $/MWh congestion cost\n', busnumber(v) , generationcost, p_congestioncost(v));
-        end
-end
-
-
-fprintf('\n              Line flow Table \n')
-fprintf('   From Bus  ||    To Bus   ||   Line Flow \n\n')
-for v=1:length(P_lineflow)
-        fprintf('%8.0f     ||%8.0f     ||%13.6f MW  \n', fb(v) , tb(v) , P_lineflow(v));
-end
-
-fprintf('\n The objective value is %4.2f $/h\n', results.objval);
-end
-
-%% Saving the results in .mat files
-%if ~exist(fullfile('loadprofile', casedata), 'dir')
-%       mkdir('loadprofile', casedata)
-%end
-%f1=num2str(minute*60);
-%f5=num2str((minute+0.25)*60);
-%f2='load at timestep - hour';
-%f3=num2str(floor(step-0.25));
-%f4='- minute -';
-%filename=strcat(f2,f3,f4,f1,f4,f5);
-%f=fullfile('loadprofile', casedata , filename);
-%save(f);
-
-%% Step increase for 24 hour loadflow analysis
-%minute=minute+0.25;
-%if minute > 0.75
-%    minute=0;
-%end
-%step=step+0.25;
-%end
+lineflow=[P_lineflow+PQ_lineflow, Q_lineflow+QP_lineflow];
 toc
