@@ -14,13 +14,11 @@ Bs = busdata(:,6);                  %Susceptance Shunt
 prat=branchdata(:,6);               %Rated line flow limit
 vmin=busdata(:,13);                 %max voltage in p.u.
 vmax=busdata(:,12);                 %min voltage in p.u.
-slack = find(busdata(:, 2) == 3);   %Finding the reference/slack bus
+slack = find(busdata(:, 2) == 3);   %finding the reference/slack bus
 noslack = find((1:nb)' ~= slack);
 noslack2= find((1:(2*nb))' ~= slack);
 iline = [(1:nl)'; (1:nl)'];
 vbase=busdata(:,8);
-
-
 
 %% Tap Ratios
 tap=ones(nl,1);
@@ -34,6 +32,7 @@ B= B ./ tap;
 G= G ./ tap;
 
 Y_res= status ./ (branchdata(:,3) + 1j*branchdata(:,4));
+
 
 %%YBUS
 Ys = status ./ (branchdata(:, 3) + 1j * branchdata(:, 4));
@@ -78,10 +77,12 @@ GQ = -Gbus;                       %GQ approxiately equals -Gbus
 %% Constructing the Inverse of C
 C=[BP GP;GQ BQ];
 Cinverse=C(noslack2,noslack2)\eye(2*nb-1);
+%Cinverse=C(noslack3,noslack3)\eye(2*nb-2);
 
 % inverted C --> Xmat filled with zeros at slack bus row and column
 X=zeros(2*nb,2*nb);
 X(noslack2,noslack2)=Cinverse;
+
 
 
 %% Constructing new partial GSF matrices 

@@ -1,7 +1,7 @@
 %% Case Data
 clear;
 tic
-casedata='IEEE118bus_constrained.m';
+casedata='IEEE30busQ.m';
 run(fullfile(casedata))
 
 %% Generation Shift / Power Transfer Distribution Matrix
@@ -54,17 +54,17 @@ b=[b1;b2];
 % Active power voltage coupling
 A_Voltage_P=(X(nb+1:end,1:nb))./baseMVA;
 
-AP_Voltage=[A_Voltage_P; A_Voltage_P];
+AP_Voltage=[A_Voltage_P; -A_Voltage_P];
 
 % Reactive power voltage coupling
 A_Voltage_Q=(X(nb+1:end,nb+1:end))./baseMVA;
 
-AQ_Voltage=[A_Voltage_Q; A_Voltage_Q];
+AQ_Voltage=[A_Voltage_Q; -A_Voltage_Q];
 
 %Voltage constraints
 B_Voltage_max=(vmax-vbase)+(X(nb+1:end,1:nb)*pd+X(nb+1:end,nb+1:end)*qd)./baseMVA;
 
-B_Voltage_min=(vmin-vbase)+(X(nb+1:end,1:nb)*pd+X(nb+1:end,nb+1:end)*qd)./baseMVA;
+B_Voltage_min=-((vmin-vbase)+(X(nb+1:end,1:nb)*pd+X(nb+1:end,nb+1:end)*qd)./baseMVA);
 
 B_Voltage=[B_Voltage_max; B_Voltage_min];
 
@@ -120,34 +120,26 @@ model.varnames = names;
 model.obj = [p_cost zeros(1,length(p_cost))];
 model.Q = sparse(Qmatrix);
 model.A = [sparse(A_P) sparse(A_Q); sparse(AP_Voltage) sparse(AQ_Voltage); sparse(Aeq) sparse(zeros(1,size(Aeq,2))); sparse(zeros(1,size(Aeq,2))) sparse(Aeq)];
-model.sense = [repmat('<',size(A_P,1),1); repmat('<',0.5*size(AP_Voltage,1),1); repmat('>',0.5*size(AP_Voltage,1),1); repmat('=',size(Aeq,1),1); repmat('=',size(Aeq,1),1)];
+model.sense = [repmat('<',size(A_P,1),1); repmat('<',size(AP_Voltage,1),1); repmat('=',size(Aeq,1),1); repmat('=',size(Aeq,1),1)];
 model.rhs = full([b(:); B_Voltage(:); p_demand(:); q_demand(:)]);
-if ~isempty(p_lb)
-    model.lb = [p_lb, q_lb];
-else
-    model.lb = -inf(size(model.A,2),1); % default lb for MATLAB is -inf
-end
-if ~isempty(p_ub)
-    model.ub = [p_ub, q_ub];
-else
-    model.ub= inf(size(model.A,2),1);
-end
+model.lb = [p_lb, q_lb];
+model.ub = [p_ub, q_ub];
 
 gurobi_write(model, 'DCOPF_QP_Q.lp');
 
-results = gurobi(model);
+results = gurobi(model,params);
 
 %% Lagrange multipliers
 
 lambda.lower = max(0,results.rc);
 lambda.upper = -min(0,results.rc);
 lambda.ineqlin = -results.pi(1:size(A_P,1));
-lambda.ineqlin_voltage= results.pi(size(A_P,1)+1:end-2);
-lambda.eqlin = results.pi(end-1:end);
+lambda.ineqlin_voltage= -results.pi(size(A_P,1)+1:end-2);
+lambda.eqlin = -results.pi(end-1:end);
 
 
 %% Generation Cost, Congestion Cost and LMP for each bus
-generationcost=lambda.eqlin;
+generationcost=-lambda.eqlin;
 p_congestioncost=(lambda.ineqlin'*[-GSF_PP ; GSF_PP])';
 q_congestioncost=(lambda.ineqlin'*[-GSF_PQ ; GSF_PQ])';
 p_lmp=generationcost(1)+p_congestioncost;
