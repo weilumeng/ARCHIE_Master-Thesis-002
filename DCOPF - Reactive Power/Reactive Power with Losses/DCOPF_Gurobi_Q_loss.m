@@ -15,7 +15,7 @@ run(fullfile(casedata))
 
 %% Generation Shift / Power Transfer Distribution Matrix
 
-run(fullfile('gsf_matrix.m'))
+run(fullfile('gsf_matrix_Q.m'))
 
 
 %% Iteration Setup
