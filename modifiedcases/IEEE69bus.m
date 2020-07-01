@@ -1,4 +1,4 @@
-function mpc = case69
+
 %CASE69  Power flow data for 69 bus distribution system
 %    Please see CASEFORMAT for details on the case file format.
 %
@@ -9,15 +9,14 @@ function mpc = case69
 %       Pages 361-367
 %       https://doi.org/10.1016/j.ijepes.2007.08.004
 
-%% MATPOWER Case Format : Version 2
-mpc.version = '2';
+
 
 %% system MVA base
-mpc.baseMVA = 10;
+baseMVA = 10;
 
 %% bus data
 % bus_i  type  Pd  Qd  Gs  Bs  area  Vm  Va  baseKV  zone  Vmax  Vmin
-mpc.bus = [
+busdata = [
   1  3  0.0000  0.0000  0.0000  0.0000  1  1  0  12.7  1  1.1  0.9
   2  1  0.0000  0.0000  0.0000  0.0000  1  1  0  12.7  1  1.1  0.9
   3  1  0.0000  0.0000  0.0000  0.0000  1  1  0  12.7  1  1.1  0.9
@@ -91,13 +90,13 @@ mpc.bus = [
 
 %% generator data
 % bus  Pg  Qg  Qmax  Qmin Vg  mBase  status  Pmax  Pmin  Pc1  Pc2  Qc1min  Qc1max  Qc2min  Qc2max  ramp_agc  ramp_10  ramp_30  ramp_q  apf
-mpc.gen = [
+gendata = [
   1  0.0000  0.0000  999  -999  1.0000  100  1   999  0  0  0  0  0  0  0  0  0  0  0  0
 ];
 
 %% branch data
 % fbus  tbus  r  x  b  rateA  rateB  rateC  ratio  angle  status  angmin  angmax
-mpc.branch = [
+branchdata = [
    1   2  0.00003120  0.00007487  0.00000000  999  999  999  0  0  1  -360  360
    2   3  0.00003120  0.00007487  0.00000000  999  999  999  0  0  1  -360  360
    3   4  0.00009359  0.00022461  0.00000000  999  999  999  0  0  1  -360  360
@@ -167,3 +166,11 @@ mpc.branch = [
   12  68  0.04613304  0.01524873  0.00000000  999  999  999  0  0  1  -360  360
   68  69  0.00029324  0.00009983  0.00000000  999  999  999  0  0  1  -360  360
 ];
+
+%% generator cost data
+%	1	startup	shutdown	n	x1	y1	...	xn	yn
+%	2	startup	shutdown	n	c(n-1)	...	c0
+gencostdata = [
+	2	0	0	3	0	20	0;
+];
+
