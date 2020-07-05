@@ -1,3 +1,8 @@
+%% Load case
+define_constants;                    %needed for the mpc function of matpower       
+
+mpc = ext2int(loadcase('case118m')); %casedata for matpower
+
 %% Acquiring Data
 
 nl=size(branchdata(:,1),1);         %Number of lines/branches
@@ -6,20 +11,19 @@ ng=size(gendata(:,1),1);            %Number of generators
 status = branchdata(:,11);          %Checks for active/inactive lines
 fb=branchdata(:,1);                 %From Bus ...
 tb=branchdata(:,2);                 %To Bus ...
-G= status ./ branchdata(:,3);       %Conductance of the line
-B= status ./ branchdata(:,4);       %Susceptance of the line
-Bc = status .* branchdata(:, 5);    %total line charging susceptance
-Gs = busdata(:,5);                  %Conductance Shunt
-Bs = busdata(:,6);                  %Susceptance Shunt
+iline = [(1:nl)'; (1:nl)'];
+
+
 prat=branchdata(:,6);               %Rated line flow limit
-vmin=busdata(:,13);                 %max voltage in p.u.
-vmax=busdata(:,12);                 %min voltage in p.u.
+
 slack = find(busdata(:, 2) == 3);   %finding the reference/slack bus
 noslack = find((1:nb)' ~= slack);
 noslack2= find((1:(2*nb))' ~= slack);
-noslack3 =[noslack,nb+noslack];
-iline = [(1:nl)'; (1:nl)'];
+noslack3 =[noslack;nb+noslack];
+
 vbase=busdata(:,8);
+vmin=busdata(:,13);                 %max voltage in p.u.
+vmax=busdata(:,12);                 %min voltage in p.u.
 
 %% Tap Ratios
 tap=ones(nl,1);
@@ -27,47 +31,18 @@ i=find(branchdata(:,9));
 tap(i)=branchdata(i,9);
 tap = tap .* exp(1j*pi/180 * branchdata(:, 10));
 
-G=status.*branchdata(:,3)./(branchdata(:,4).^2+branchdata(:,3).^2);
-B=-status.*branchdata(:,4)./(branchdata(:,3).^2+branchdata(:,4).^2);
+G= status.*branchdata(:,3)./(branchdata(:,4).^2+branchdata(:,3).^2);
+B= -status.*branchdata(:,4)./(branchdata(:,3).^2+branchdata(:,4).^2);
 B= B ./ tap;
 G= G ./ tap;
 
-Y_res= status ./ (branchdata(:,3) + 1j*branchdata(:,4));
 
-
-%%YBUS
-Ys = status ./ (branchdata(:, 3) + 1j * branchdata(:, 4));
-Ytt = Ys + 1j*Bc/2;
-Yff = Ytt ./ (tap .* conj(tap));
-Yft = - Ys ./ conj(tap);
-Ytf = - Ys ./ tap;
-
-
-Ysh = (busdata(:, 5) + 1j * busdata(:, 6)) / baseMVA; %% vector of shunt admittances
-
-Yf = sparse(iline, [fb; tb], [Yff; Yft], nl, nb);
-Yt = sparse(iline, [fb; tb], [Ytf; Ytt], nl, nb);
-
-%% build Ybus
-Ybus = sparse([fb;fb;tb;tb], [fb;tb;fb;tb], [Yff;Yft;Ytf;Ytt], nb, nb) + ... %% branch admittances
-            sparse(1:nb, 1:nb, Ysh, nb, nb);        %% shunt admittance
-
-%% GSF Matrix Construction
-
-Cft = sparse(iline, [fb;tb], [ones(nl, 1); -ones(nl, 1)], nl, nb);
-
-Bf = sparse(iline, [fb; tb], [B; -B], nl, nb);
-Gf = sparse(iline, [fb; tb], [G; -G], nl, nb);
-Y_series = sparse(iline, [fb; tb], [Y_res; -Y_res], nl, nb);
-
-
-Bf_new=imag(Y_series);
-Gf_new=real(Y_series);
-
-
-%% Constructing the Bus Matrices
+%% Ybus created with matpower function
+Ybus = makeYbus(mpc);
 Gbus = real(Ybus);
 Bbus = imag(Ybus);
+
+%% Constructing the Bus Matrices
 
 GP = Gbus;
 BD = diag(sum(Bbus));             %shunt elements
@@ -76,15 +51,36 @@ BP = -Bbus + BD;
 BQ = -Bbus;
 GQ = -Gbus + GD;                       %GQ approxiately equals -Gbus
 
+
+%% GSF Matrix Construction
+
+Cft = sparse(iline, [fb;tb], [ones(nl, 1); -ones(nl, 1)], nl, nb);
+
+Bf = sparse(iline, [fb; tb], [B; -B], nl, nb);
+Gf = sparse(iline, [fb; tb], [G; -G], nl, nb);
+
+
+
 %% Constructing the Inverse of C
 C=[BP GP;GQ BQ];
-Cinverse=C(noslack2,noslack2)\eye(2*nb-1);
-%Cinverse=C(noslack3,noslack3)\eye(2*nb-2);
 
-% inverted C --> Xmat filled with zeros at slack bus row and column
-X=zeros(2*nb,2*nb);
-X(noslack2,noslack2)=Cinverse;
-%X(noslack3,noslack3)=Cinverse;
+Cinverse=(C(noslack2,noslack2)\speye(2*nb-1));                         %removes 1 row and column for transmission networks
+%Cinverse=(C(noslack3,noslack3)\speye(size(C(noslack3,noslack3))));    %removes 2 rows and columns for distribution networks
+
+
+%% Pseudo inversion with 1 row and column removed
+%%while it inverts the matrix the Pseudo Inverse of C is unprecise and shouldnt be used
+%%which can easily be checked by Cinverse*C which should be close to the
+%%identity matrix and fails to do so
+
+%Cinverse=pinv(full(C(noslack2,noslack2)));                              
+
+
+% inverted C --> X filled with zeros at slack bus row and column
+X=zeros(2*nb);
+
+X(noslack2,noslack2)=Cinverse;                                      %1 removed row/column filled with zeros
+%X(noslack3,noslack3)=Cinverse;                                     %2 removed rows/columns filled with zeros
 
 %% Constructing new partial GSF matrices 
 GSF_PP =  full( Gf *  X(nb+1:end,1:nb)      -Bf * X(1:nb,1:nb));
@@ -95,7 +91,7 @@ GSF_QQ =  full(-Gf *  X(1:nb,nb+1:end)      -Bf * X(nb+1:end,nb+1:end));
 
 %Checking for unrestricted line flows - if line flow at line i is  
 %unrestricted (=0) set it to Inf
-for i=1:length(prat)
+for i=1:nl
     if prat(i)==0
         prat(i)=Inf;
     end
