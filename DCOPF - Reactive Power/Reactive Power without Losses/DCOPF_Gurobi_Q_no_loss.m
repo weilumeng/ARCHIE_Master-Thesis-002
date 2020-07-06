@@ -4,11 +4,9 @@ tic
 casedata='IEEE118bus_constrained.m';
 run(fullfile(casedata))
 
-
 %% Generation Shift / Power Transfer Distribution Matrix
 
 run(fullfile('ptdf_matrix_Q.m'))
-
 
 %% Generator Bus Connection Matrix
 
@@ -20,7 +18,6 @@ for i=1:nb
         end
     end
 end
-
 
 %% Setting up Matrices for the Quadratic Programming Solver
 % Cost function to minimize
@@ -49,7 +46,6 @@ qd=busdata(:,4)-charging_injection;
 b1=prat(1:nl)+GSF_PP*(pd)+GSF_PQ*(qd);
 b2=-prat(1:nl)+GSF_PP*(pd)+GSF_PQ*(qd);
 
-
 %% Voltage formulation
 %Voltage constraints based on the Nodal Injection e.g. [AP_Voltage AQ_Voltage]*x<[B_voltage_max] 
 % with x as the optimization vector consisting of [Pg;Qg] Pg=Active Power Injection Qg=Reactive Power
@@ -77,7 +73,6 @@ p_lb=gendata(:,10);
 p_ub=gendata(:,9);
 q_lb=gendata(:,5);
 q_ub=gendata(:,4);
-
 
 %% Quadratic cost functions for each generator
 Qmatrix=zeros(2*size(A1,2),2*size(A1,2));
@@ -119,14 +114,12 @@ lambda.ineqlin = -results.pi(1:2*size(A1,1));
 lambda.ineqlin_voltage= -results.pi(2*size(A1,1)+1:end-2);
 lambda.eqlin = results.pi(end-1:end);
 
-
 %% Generation Cost, Congestion Cost and LMP for each bus
 generationcost=lambda.eqlin;
 p_congestioncost=(lambda.ineqlin'*[-GSF_PP ; -GSF_PP])';
 q_congestioncost=(lambda.ineqlin'*[-GSF_PQ ; -GSF_PQ])';
 p_lmp=generationcost(1)+p_congestioncost;
 q_lmp=generationcost(2)+q_congestioncost;
-
 
 %% Net injections
 pn=Ag*results.x(1:ng)-pd;
