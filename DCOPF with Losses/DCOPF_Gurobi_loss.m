@@ -1,7 +1,7 @@
 %% Case Data
-clear;
+clc;clear;
 tic
-casedata='IEEE33bus.m';
+casedata='IEEE118bus.m';
 run(fullfile(casedata))
 
 %% Loadcurve
@@ -43,10 +43,10 @@ end
 
 %% Estimated Losses
 Ploss_est=0;
-LF_est=zeros(nb,1);
+
 DF_est=ones(nb,1);
 E_est=zeros(nb,1);
-E_est_old=zeros(nb,1);
+
 gendispatch=zeros(ng,maxiter);
 mismatchdispatch=ones(ng,maxiter);
 
@@ -149,18 +149,11 @@ end
 pn=Ag*results.x-pd-E_est;
 
 %% Damping parameter (necessary for >100 busses)
-w=0.0;
-if iter>1
-pn_old=Ag*gendispatch(:,iter-1)-pd-E_est_old;
-pn=w*pn_old+(1-w)*pn;
-end
+w=0.75;
 
 %% Lineflow based on PTDF and net injections
 lineflow=PTDF*pn;
-if iter>1
-lineflow_old=PTDF*pn_old;
-lineflow=w*lineflow_old+(1-w)*lineflow;
-end
+
 
 %% Loss formulation
 run(fullfile('lossfactor.m'));
@@ -246,7 +239,7 @@ toc
 %% ACOPF MATPOWER
 % AC Power flow
 define_constants;
-mpc = ext2int(loadcase('case33bw'));
+mpc = ext2int(loadcase('case118'));
 mpopt = mpoption('model','ACOPF');
 resultAC = runopf(mpc,mpopt);
 BusVolAC = resultAC.bus(:,VM);
@@ -300,8 +293,9 @@ title('Active Power Flow Comparison');
 
 figure
 plot(1:nb,ALMPAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nb,lmp,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','My DCOPF');
+plot(1:nb,lmp,'Marker','o','LineWidth',0.5, 'Color', '#EDB120'); hold on;
+plot(1:nb,ALMPDC, 'Marker','.','LineWidth',0.5, 'Color', '#0072BD')
+legend('ACOPF','My DCOPF', 'DCOPF');
 xlabel('Bus');
 ylabel('$/MWh');
 title('ALMP Comparison');

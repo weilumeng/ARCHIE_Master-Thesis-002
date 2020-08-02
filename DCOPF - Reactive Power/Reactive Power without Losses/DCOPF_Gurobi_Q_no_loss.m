@@ -1,9 +1,9 @@
 %% Case Data
 clc;clear;
 tic
-casedata='IEEE118bus_constrained.m';
+casedata='IEEE33bus.m';
 run(fullfile(casedata))
-
+mpc=ext2int(loadcase('case33bw'));
 %% Generation Shift / Power Transfer Distribution Matrix
 
 run(fullfile('ptdf_matrix_Q.m'))
@@ -50,7 +50,7 @@ b2=-prat(1:nl)+GSF_PP*(pd)+GSF_PQ*(qd);
 %Voltage constraints based on the Nodal Injection e.g. [AP_Voltage AQ_Voltage]*x<[B_voltage_max] 
 % with x as the optimization vector consisting of [Pg;Qg] Pg=Active Power Injection Qg=Reactive Power
 % Injection
-
+vmax=1.05;
 vbase=1;            %Sets the base voltage of all buses to 1 p.u.
                     %only affects case118 and is needed for the linear 
                     %assumptions to hold

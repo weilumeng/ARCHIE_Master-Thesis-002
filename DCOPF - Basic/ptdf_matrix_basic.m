@@ -32,7 +32,7 @@ Bbusnew = Cft' * Bf;
 noslack = find((1:nb)' ~= slack);
 PTDF = zeros(nl, nb);
 PTDF(:, noslack) = full(Bf(:, noslack) / Bbusnew(noslack, noslack));
-
+%PTDF(:, :) = full(Bf(:, :) / Bbusnew(:, :));
 
 %Checking for unrestricted line flows - if line flow at line i is  
 %unrestricted (=0) set it to Inf

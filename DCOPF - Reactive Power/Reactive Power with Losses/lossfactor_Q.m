@@ -7,6 +7,7 @@ X_res=status.*branchdata(:,4);
 R=R.*tap;
 X_res=X_res.*tap;
 
+
 %% Aggregated loss of the system
 %based on Equation (11) of "A Linear LMP Model for Active and Reactive Power with Power Loss"
 
@@ -17,17 +18,16 @@ P_lineflow_base=lineflow(:,1)./baseMVA;
 P_lineflow_quad=P_lineflow_base.*P_lineflow_base;
 
 % Active Power loss for each line in p.u.
-Ploss=P_lineflow_quad.*R;  
+Ploss=P_lineflow_quad.*R;
 % Active power system loss in MW
 Ptotalloss=sum(Ploss)*baseMVA;
 
 % Reactive Power loss for each line in p.u.
-Qloss=(P_lineflow_quad.*X_res);
+Qloss=P_lineflow_quad.*X_res;
 % Reactive Power system loss in MVar
 Qtotalloss=sum(Qloss)*baseMVA;
 
 %% Loss and Delivery Factor
-
 % Active Power Loss Factor
 LF_P=(2.*P_lineflow_base.*GSF_PP)'*R;
 
@@ -68,17 +68,17 @@ DifferenceQloss=abs(Qtotalloss-Qloss_est);
 
 %System losses
 Ploss_est=w*Ploss_est+(1-w)*Ptotalloss;
-Qloss_est=Qtotalloss;
+%Qloss_est=w*Qloss_est+(1-w)*Qtotalloss;
 
 %Delivery Factors
 DF_P_est=w*DF_P_est+(1-w)*DF_P;
-DF_Q_est=DF_Q;
+%DF_Q_est=w*DF_Q_est+(1-w)*DF_Q;
 
 %Fictinous nodal demand (active power)
-E_P_est=E_P;
+E_P_est=w*E_P_est+(1-w)*E_P;
 
 %Fictinous nodal demand (reactive power)
-E_Q_est=E_Q;
+%E_Q_est=w*E_Q_est+(1-w)*E_Q;
 
 %% More termination criterions
 

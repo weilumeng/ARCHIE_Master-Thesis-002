@@ -1,7 +1,7 @@
 %% Case Data
 clear;
 tic
-casedata='IEEE33bus.m';
+casedata='IEEE33bus_modified.m';
 run(fullfile(casedata))
 
 %% Loadcurve
@@ -56,8 +56,8 @@ beq=ones(1,nb)*busdata(:,3);
 A1=PTDF*Ag;    
 pd=busdata(:,3);
 
-b1=prat(1:length(branchdata(:,1)))+PTDF*(pd);
-b2=prat(1:length(branchdata(:,1)))-PTDF*(pd);
+b1=prat(1:nl)+PTDF*(pd);
+b2=prat(1:nl)-PTDF*(pd);
 
 A=[A1; -A1];
 b=[b1;b2];
@@ -175,7 +175,7 @@ toc
 %% ACOPF MATPOWER
 % AC Power flow
 define_constants;
-mpc = ext2int(loadcase('case33bw'));
+mpc = ext2int(loadcase('case33bwm'));
 mpopt = mpoption('model','ACOPF');
 resultAC = runopf(mpc,mpopt);
 BusVolAC = resultAC.bus(:,VM);

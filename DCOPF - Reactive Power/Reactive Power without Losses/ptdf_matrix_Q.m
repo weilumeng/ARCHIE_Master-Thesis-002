@@ -1,7 +1,7 @@
 %% Load case
 define_constants;                    %needed for the mpc function of matpower       
 
-mpc = ext2int(loadcase('case118m')); %casedata for matpower
+[baseMVA, bus, gen, branch] = deal(mpc.baseMVA, mpc.bus, mpc.gen, mpc.branch);
 
 %% Acquiring Data
 
@@ -45,8 +45,8 @@ Bbus = imag(Ybus);
 %% Constructing the Bus Matrices
 
 GP = Gbus;
-BD = diag(sum(Bbus));             %shunt elements
-GD = diag(sum(Gbus));
+BD = diag(sum(Bbus'));             %shunt elements
+GD = diag(sum(Gbus'));
 BP = -Bbus + BD;
 BQ = -Bbus;
 GQ = -Gbus + GD;                       %GQ approxiately equals -Gbus

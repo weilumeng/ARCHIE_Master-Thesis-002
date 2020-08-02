@@ -4,7 +4,7 @@ baseMVA = 100;
 %% bus data
 %	bus_i	type	Pd	Qd	Gs	Bs	area	Vm	Va	baseKV	zone	Vmax	Vmin
 busdata = [  %% (Pd and Qd are specified in kW & kVAr here, converted to MW & MVAr below)
-	1	3	0	0	0	0	1	1	0	12.66	1	1	1;
+	1	3	500	0	0	0	1	1	0	12.66	1	1	1;
 	2	1	100	60	0	0	1	1	0	12.66	1	1.1	0.9;
 	3	1	90	40	0	0	1	1	0	12.66	1	1.1	0.9;
 	4	1	120	80	0	0	1	1	0	12.66	1	1.1	0.9;
@@ -33,7 +33,7 @@ busdata = [  %% (Pd and Qd are specified in kW & kVAr here, converted to MW & MV
 	27	1	60	25	0	0	1	1	0	12.66	1	1.1	0.9;
 	28	1	60	20	0	0	1	1	0	12.66	1	1.1	0.9;
 	29	1	120	70	0	0	1	1	0	12.66	1	1.1	0.9;
-	30	1	200	600	0	0	1	1	0	12.66	1	1.1	0.9;
+	30	2	200	600	0	0	1	1	0	12.66	1	1.1	0.9;
 	31	1	150	70	0	0	1	1	0	12.66	1	1.1	0.9;
 	32	1	210	100	0	0	1	1	0	12.66	1	1.1	0.9;
 	33	1	60	40	0	0	1	1	0	12.66	1	1.1	0.9;
@@ -42,13 +42,12 @@ busdata = [  %% (Pd and Qd are specified in kW & kVAr here, converted to MW & MV
 %% generator data
 %	bus	Pg	Qg	Qmax	Qmin	Vg	mBase	status	Pmax	Pmin	Pc1	Pc2	Qc1min	Qc1max	Qc2min	Qc2max	ramp_agc	ramp_10	ramp_30	ramp_q	apf
 gendata = [
-	1	0	0	10	-10	1	100	1	10      0	0	0	0	0	0	0	0	0	0	0	0;
-    22	0	0	10	-10	1	100	1	0.1     0	0	0	0	0	0	0	0	0	0	0	0;
-    24	0	0	10	-10	1	100	1	0.1     0	0	0	0	0	0	0	0	0	0	0	0;
-    16	0	0	10	-10	1	100	1	0.15	0	0	0	0	0	0	0	0	0	0	0	0;
-    30  0   0   10  -10 1   100 1   0.15    0   0   0   0   0   0   0   0   0   0   0   0;
-   
-];
+	1	0	0	10	-10     1	100	1	10      0	0	0	0	0	0	0	0	0	0	0	0;
+    18	0	0	0.5	-0.5	1	100	1	1     0	0	0	0	0	0	0	0	0	0	0	0;
+    22	0	0	0.5	-0.5	1	100	1	1     0	0	0	0	0	0	0	0	0	0	0	0;
+    25	0	0	0.5	-0.5	1	100	1	1	0	0	0	0	0	0	0	0	0	0	0	0;
+    33  0   0   0.5 -0.5    1   100 1   1    0   0   0   0   0   0   0   0   0   0   0   0;
+   ];
 
 %% branch data
 %	fbus	tbus	r	x	b	rateA	rateB	rateC	ratio	angle	status	angmin	angmax
@@ -85,11 +84,11 @@ branchdata = [  %% (r and x specified in ohms here, converted to p.u. below)
 	30	31	0.9744	0.9630	0	0	0	0	0	0	1	-360	360;
 	31	32	0.3105	0.3619	0	0	0	0	0	0	1	-360	360;
 	32	33	0.3410	0.5302	0	0	0	0	0	0	1	-360	360;
-	21	8	2.0000	2.0000	0	0	0	0	0	0	1	-360	360;
-	9	15	2.0000	2.0000	0	0	0	0	0	0	1	-360	360;
-	12	22	2.0000	2.0000	0	0	0	0	0	0	1	-360	360;
-	18	33	0.5000	0.5000	0	0	0	0	0	0	1	-360	360;
-	25	29	0.5000	0.5000	0	0	0	0	0	0	1	-360	360;
+	21	8	2.0000	2.0000	0	0   0   0   0   0	0	-360	360;
+	9	15	2.0000	2.0000	0	0	0	0	0	0	0	-360	360;
+	12	22	2.0000	2.0000	0	0   0	0	0	0	0	-360	360;
+	18	33	0.5000	0.5000	0	0	0	0	0	0	0	-360	360;
+	25	29	0.5000	0.5000	0	0	0	0	0	0	0	-360	360;
 ];
 
 %%-----  OPF Data  -----%%
@@ -97,13 +96,12 @@ branchdata = [  %% (r and x specified in ohms here, converted to p.u. below)
 %	1	startup	shutdown	n	x1	y1	...	xn	yn
 %	2	startup	shutdown	n	c(n-1)	...	c0
 gencostdata = [
-	2	0	0	3	0	20	0;
-    2   0   0   3   0   0.2  0;
-    2   0   0   3   0   0.2  0;
-    2   0   0   3   0   0.2  0;
-    2   0   0   3   0   0.2  0;
-];
-
+	2	0	0	3	0   30  0;
+    2   0   0   3   0   25  0;
+    2   0   0   3   0   25  0;
+    2   0   0   3   0   25  0;
+    2   0   0   3   0   25  0;
+    ];
 
 %% convert branch impedances from Ohms to p.u.
 

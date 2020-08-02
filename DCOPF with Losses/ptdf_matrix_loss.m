@@ -6,12 +6,15 @@ ng=size(gendata(:,1),1);            %Number of generators
 status = branchdata(:,11);          %Checks the status of active/inactive lines
 fb=branchdata(:,1);                 %From Bus ...
 tb=branchdata(:,2);                 %To Bus ...
+iline = [(1:nl)'; (1:nl)'];
+
 G= status ./ branchdata(:,3);       %Conductance of the line
 B= status ./ branchdata(:,4);       %Susceptance of the line
-prat=branchdata(:,6);               %Rated line flow limit
-slack = find(busdata(:, 2) == 3);   %Finding the reference bus
-                                    %Demand of each bus
 
+prat=branchdata(:,6);               %Rated line flow limit
+
+slack = find(busdata(:, 2) == 3);   %Finding the reference bus
+noslack = find((1:nb)' ~= slack);
 
 % Tap Ratios
 tap=ones(nl,1);
@@ -21,24 +24,21 @@ B= B ./ tap;
 G= G ./ tap;
 
 
-
-
-
 %PTDF Matrix Construction
 
-iline = [(1:nl)'; (1:nl)'];
 Cft = sparse(iline, [fb;tb], [ones(nl, 1); -ones(nl, 1)], nl, nb);
 Bf = sparse(iline, [fb; tb], [B; -B], nl, nb);
-Bbusnew = Cft' * Bf;
-noslack = find((1:nb)' ~= slack);
+Bbus = Cft' * Bf;
+
 PTDF = zeros(nl, nb);
-PTDF(:, noslack) = full(Bf(:, noslack) / Bbusnew(noslack, noslack));
+PTDF(:, noslack) = full(Bf(:, noslack) / Bbus(noslack, noslack));
+%PTDF(:, :) = full(Bf(:, :) / Bbus(:, :));
 
 
 %Checking for unrestricted line flows - if line flow at line i is  
 %unrestricted (=0) set it to Inf
 
-for i=1:length(prat)
+for i=1:nl
     if prat(i)==0
         prat(i)=Inf;
     end
