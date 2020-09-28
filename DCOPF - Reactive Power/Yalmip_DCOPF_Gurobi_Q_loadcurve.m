@@ -1,7 +1,7 @@
 %% Case Data
 clc;clear;
 define_constants;
-casedata='case33bwm2';
+casedata='case69m';
 mpc = (loadcase(casedata));
 
 % for cases without branch limits (such as case33bw)
@@ -157,7 +157,7 @@ end
     
 
 
-%% Clearing Yalmip decision variables and constraint - they cannot be saved in binary format    
+%% Clearing Yalmip decision variables and constraints - they cannot be saved in binary format    
 constraint=[];objective=[];ang=[];V=[];P=[];Q=[];Pl=[];Ql=[]; 
 
 
@@ -215,48 +215,4 @@ end
 step=step+0.25;
 end
 
-
-%% PLOTTING
-figure
-plot(1:nb,BusVolAC,'Marker','*','LineWidth',0.6,'Color','#A2142F','MarkerFaceColor','#A2142F');hold on;
-plot(1:nb,busVol,'Marker','o','LineWidth',0.6, 'Color', '#EDB120','MarkerFaceColor','#EDB120'); hold on;
-plot(1:nb,mpc.bus(:,VMAX),'Marker','v','LineWidth',1.0,'Color','#0072BD', 'MarkerSize', 4, 'MarkerFaceColor', '#0072BD'); hold on;
-plot(1:nb,mpc.bus(:,VMIN),'Marker','^','LineWidth',1.0,'Color','#0072BD', 'MarkerSize', 4, 'MarkerFaceColor', '#0072BD')
-legend('ACOPF','My DCOPF', 'Vmax', 'Vmin');
-xlabel('Node');
-ylabel('Voltage Magnitude');
-title('Voltage Magnitude Comparison');
-
-
-figure
-plot(1:nl,BranchFlowAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nl,branchP,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','My DCOPF');
-xlabel('Branch');
-ylabel('MW');
-title('Active Power Flow Comparison');
-
-figure
-plot(1:nl,BranchFlowAC_Q,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nl,branchQ,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','My DCOPF');
-xlabel('Branch');
-ylabel('MVar');
-title('Reactive Power Flow Comparison');
-
-figure
-plot(1:nb,ALMPAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nb,LMP_P,'Marker','o','LineWidth',0.5, 'Color', '#EDB120'); hold on;
-plot(1:nb,ALMPDC, 'Marker','.','LineWidth',0.5, 'Color', '#0072BD')
-legend('ACOPF','My DCOPF', 'DCOPF');
-xlabel('Bus');
-ylabel('$/MWh');
-title('ALMP Comparison');
-
-figure
-plot(1:nb,RLMPAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nb,LMP_Q,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','My DCOPF');
-xlabel('Bus');
-ylabel('$/MVar');
-title('RLMP Comparison');
+%% Plots are handled by the file loading_data_from_loadcurve_files
