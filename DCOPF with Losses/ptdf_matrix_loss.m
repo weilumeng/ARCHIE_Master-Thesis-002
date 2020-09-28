@@ -1,25 +1,30 @@
+define_constants;                    %needed for the mpc function of matpower       
+
+[baseMVA, bus, gen, branch, gencost] = deal(mpc.baseMVA, mpc.bus, mpc.gen, mpc.branch, mpc.gencost);
+
+
 %% Acquiring Data
 
-nl=size(branchdata(:,1),1);         %Number of lines/branches
-nb=size(busdata(:,1),1);            %Number of buses
-ng=size(gendata(:,1),1);            %Number of generators
-status = branchdata(:,11);          %Checks the status of active/inactive lines
-fb=branchdata(:,1);                 %From Bus ...
-tb=branchdata(:,2);                 %To Bus ...
+nl=size(branch(:,1),1);         %Number of lines/branches
+nb=size(bus(:,1),1);            %Number of buses
+ng=size(gen(:,1),1);            %Number of generators
+status = branch(:,11);          %Checks the status of active/inactive lines
+fb=branch(:,1);                 %From Bus ...
+tb=branch(:,2);                 %To Bus ...
 iline = [(1:nl)'; (1:nl)'];
 
-G= status ./ branchdata(:,3);       %Conductance of the line
-B= status ./ branchdata(:,4);       %Susceptance of the line
+G= status ./ branch(:,3);       %Conductance of the line
+B= status ./ branch(:,4);       %Susceptance of the line
 
-prat=branchdata(:,6);               %Rated line flow limit
+prat=branch(:,6);               %Rated line flow limit
 
-slack = find(busdata(:, 2) == 3);   %Finding the reference bus
+slack = find(bus(:, 2) == 3);   %Finding the reference bus
 noslack = find((1:nb)' ~= slack);
 
 % Tap Ratios
 tap=ones(nl,1);
-i=find(branchdata(:,9));
-tap(i)=branchdata(i,9);
+i=find(branch(:,9));
+tap(i)=branch(i,9);
 B= B ./ tap;
 G= G ./ tap;
 

@@ -1,5 +1,5 @@
 %% Resistance of the lines
-R=status.*branchdata(:,3);
+R=status.*branch(:,3);
 R=R.*tap;
 %% Aggregated loss of the system
 

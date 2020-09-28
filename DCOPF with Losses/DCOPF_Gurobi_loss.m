@@ -1,15 +1,7 @@
 %% Case Data
 clc;clear;
-tic
-casedata='IEEE118bus.m';
-run(fullfile(casedata))
+mpc = (loadcase('case118'));
 
-%% Loadcurve
-
-%loadprofiledata=readtable('202002110000.xlsx', 'PreserveVariableNames', true, 'Range', 'C8:C103', 'ReadVariableNames', true);
-%loadcurve=table2array(loadprofiledata(:,1));
-%loadcurve=str2double(loadcurve);
-%loadcurve_base=loadcurve./mean(loadcurve);
 
 %% Generation Shift / Power Transfer Distribution Matrix
 
@@ -17,29 +9,20 @@ run(fullfile('ptdf_matrix_loss.m'))
 
 %% Iteration Setup
 
-%step=0.25;
 iter=1;
 maxiter=100;
-%minute=0;
 
 %% Generator Bus Connection Matrix
 
 Ag=zeros(nb,ng);
 for i=1:nb
     for j=1:ng
-        if gendata(j,1)==i
+        if gen(j,1)==i
             Ag(i,j)=1;
         end
     end
 end
 
-%% Loadcurve timesteps
-
-%while step<24
-%run(fullfile(casedata))
-%busdata(:,3)=busdata(:,3)*loadcurve_base(step*4);
-%iter=1;
-   
 
 %% Estimated Losses
 Ploss_est=0;
@@ -52,7 +35,7 @@ mismatchdispatch=ones(ng,maxiter);
 
 %% Setting up Matrices for the Quadratic Programming Solver
 % Cost function to minimize
-f=gencostdata(:,6)';
+f=gencost(:,6)';
 
 %% Iteration for the loss formulation starts here
 
@@ -62,45 +45,45 @@ while iter~=maxiter
 Aeq=ones(1,ng);
 for i=1:nb
    for j=1:ng
-        if gendata(j,1)==i
+        if gen(j,1)==i
             Aeq(j)=DF_est(i);
         end
     end
 end
 
 % Demand Side of Pg=Pd Equation with Delivery Factor
-beq=ones(1,nb)*(busdata(:,3).*DF_est);
+beq=ones(1,nb)*(bus(:,3).*DF_est);
 %Demand Side of Pg=Pd Equation + Losses
 beq=beq-Ploss_est;                                      
 
 
 %% Setting up Matrices for PTDF Formulation
 A1=PTDF*Ag;    
-pd=busdata(:,3);
+pd=bus(:,3);
 
-b1=prat(1:length(branchdata(:,1)))+PTDF*(pd+E_est);
-b2=prat(1:length(branchdata(:,1)))-PTDF*(pd+E_est);
+b1=prat(1:length(branch(:,1)))+PTDF*(pd+E_est);
+b2=prat(1:length(branch(:,1)))-PTDF*(pd+E_est);
 
 A=[A1; -A1];
 b=[b1;b2];
 
 
 %% Generation limit for each generator
-lb=gendata(:,10);
-ub=gendata(:,9);
+lb=gen(:,10);
+ub=gen(:,9);
 
 
 %% Quadratic cost functions for each generator
 Qmatrix=zeros(size(A,2),size(A,2));
-for i=1:length(gencostdata(:,5))
-    if gencostdata(i,5)~=0
-        Qmatrix(i,i)=gencostdata(i,5);
+for i=1:length(gencost(:,5))
+    if gencost(i,5)~=0
+        Qmatrix(i,i)=gencost(i,5);
     end
 end
 
 %% Quadratic Programming with Gurobi Solver
-names={num2str(zeros(1,length(gendata(:,1))))};
-for i=1:length(gendata(:,1))
+names={num2str(zeros(1,length(gen(:,1))))};
+for i=1:length(gen(:,1))
 names(i) = {num2str("P"+num2str(i))};
 end
 model.varnames = names;
@@ -149,7 +132,11 @@ end
 pn=Ag*results.x-pd-E_est;
 
 %% Damping parameter (necessary for >100 busses)
+if nb>100
 w=0.75;
+else
+    w=0;
+end
 
 %% Lineflow based on PTDF and net injections
 lineflow=PTDF*pn;
@@ -189,7 +176,7 @@ for v=1:length(generationcost)
 fprintf('\n Generation cost = %g $/MWh\n\n', generationcost);
 end
 
-busnumber=busdata(:,1);
+busnumber=bus(:,1);
 
 for v=1:length(congestioncost)
     if congestioncost(v)~=0
@@ -214,32 +201,8 @@ end
 fprintf('\n The objective value is %4.2f $/h\n', results.objval);
 end
 
-%% Saving the results in .mat files
-%if ~exist(fullfile('loadprofile', casedata), 'dir')
-%       mkdir('loadprofile', casedata)
-%end
-%f1=num2str(minute*60);
-%f5=num2str((minute+0.25)*60);
-%f2='load at timestep - hour';
-%f3=num2str(floor(step-0.25));
-%f4='- minute -';
-%filename=strcat(f2,f3,f4,f1,f4,f5);
-%f=fullfile('loadprofile', casedata , filename);
-%save(f);
-
-%% Step increase for 24 hour loadflow analysis
-%minute=minute+0.25;
-%if minute > 0.75
-%    minute=0;
-%end
-%step=step+0.25;
-%end
-toc
-
-%% ACOPF MATPOWER
-% AC Power flow
+%% MATPOWER Reference Values (ACOPF AND DCOPF)
 define_constants;
-mpc = ext2int(loadcase('case118'));
 mpopt = mpoption('model','ACOPF');
 resultAC = runopf(mpc,mpopt);
 BusVolAC = resultAC.bus(:,VM);
@@ -249,61 +212,93 @@ BranchFlowAC_Q= (resultAC.branch(:,QF)-resultAC.branch(:,QT))/2;
 ALMPAC=(resultAC.bus(:,LAM_P));
 RLMPAC=(resultAC.bus(:,LAM_Q));
 
+Fehler=(abs((lmp-ALMPAC)./ALMPAC))*100;
 AEA=sum(abs((lmp-ALMPAC)./ALMPAC))/nb;
 
 mpopt = mpoption('model','DCOPF');
 resultDC = rundcopf(mpc,mpopt);
+BranchFlowDC = (resultDC.branch(:,PF)-resultDC.branch(:,PT))/2;
 ALMPDC=(resultDC.bus(:,LAM_P));
 AEADC=sum(abs((ALMPDC-ALMPAC)./ALMPAC))/nb;
+FehlerDC=(abs((ALMPDC-ALMPAC)./ALMPAC))*100;
+
+
 
 %% PLOTTING
-%figure
-%plot(1:nb,BusVolAC,'Marker','*','LineWidth',0.6,'Color','#A2142F','MarkerFaceColor','#A2142F');hold on;
-%plot(1:nb,Voltageatbus,'Marker','o','LineWidth',0.6, 'Color', '#EDB120','MarkerFaceColor','#EDB120'); hold on;
-%plot(1:nb,vmax,'Marker','v','LineWidth',1.0,'Color','#0072BD', 'MarkerSize', 4, 'MarkerFaceColor', '#0072BD'); hold on;
-%plot(1:nb,vmin,'Marker','^','LineWidth',1.0,'Color','#0072BD', 'MarkerSize', 4, 'MarkerFaceColor', '#0072BD')
-%legend('ACOPF','My DCOPF', 'Vmax', 'Vmin');
-%xlabel('Node');
-%ylabel('Voltage Magnitude');
-%title('Voltage Magnitude Comparison');
+fh1=figure('Name','Leistungsflüsse','Menu','none','ToolBar','none', 'Position', [   488   342   560   420]);
+plot(1:nl,BranchFlowAC,'Marker','*','LineWidth',1,'Color','#A2142F', 'MarkerSize', 4,'LineStyle', '-');hold on;
+plot(1:nl,lineflow,'Marker','o','LineWidth',1, 'Color', '#EDB120','MarkerSize', 4,'LineStyle', '-'); hold on;
+plot(1:nl,BranchFlowDC,'Marker','.','LineWidth',0.8, 'Color', '#0072BD','MarkerSize', 6,'LineStyle', '-')
+xlim([1 nl+1]);
+%ylim([-0.5 4]);
+legend('MATPOWER ACOPF','DCOPF-L', 'MATPOWER DCOPF');
+xlabel('Leitung','FontSize',10,'FontName','Cambria');
+ylabel('Wirkleistungsfluss (MW)','FontSize',10,'FontName','Cambria');
+%title('Vergleich der Wirkleistungsflüsse','FontSize',10,'FontName','Cambria');
+set(gca,'FontSize',10, 'FontName','Cambria')
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('Leistungsflüsse Verlust' ,'-dsvg')
 
-figure
-plot(1,AEA,'Marker','o','LineWidth',0.6,'Color','#A2142F','MarkerFaceColor','#A2142F');hold on;
-plot(1,AEADC,'Marker','*','LineWidth',0.6,'Color','#A2142F','MarkerFaceColor','#A2142F');hold on;
-legend('Average Error : My DCOPF', 'Matpower DCOPF');
-xlabel('Loadlevel');
-ylabel('Error Percentage');
-title('Average Error Analysis');
 
-figure
-plot(1:nl,BranchFlowAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nl,lineflow,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','My DCOPF');
-xlabel('Branch');
-ylabel('MW');
-title('Active Power Flow Comparison');
+energycost=(1:nb)';
+energycost(1:nb)=generationcost;
 
-%figure
-%plot(1:nl,BranchFlowAC_Q,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-%plot(1:nl,lineflow(:,2),'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-%legend('ACOPF','My DCOPF');
-%xlabel('Branch');
-%ylabel('MVar');
-%title('Reactive Power Flow Comparison');
+fh2=figure('Name','LMP Zerlegung','Menu','none','ToolBar','none');
+set(gca,'FontSize',10, 'FontName','Cambria')
+t=tiledlayout(3,1);
+nexttile
+plot(1:nb,energycost,'Marker','.','LineWidth',0.8,'Color','#1b9e77','MarkerSize', 9,'LineStyle', '-');hold on;
+legend('Energiekosten','FontSize',10, 'FontName','Cambria');
+xlim([1 nb+1]);
+%ylim([19 21]);
+nexttile([2 1])
+plot(1:nb,congestioncost,'Marker','.','LineWidth',0.8, 'Color', '#d95f02','MarkerSize', 9,'LineStyle', '-'); hold on;
+plot(1:nb,losscost, 'Marker','.','LineWidth',0.8, 'Color', '#7570b3','MarkerSize', 9,'LineStyle', '-')
+%ylim([0 2.5]);
+xlim([1 nb+1]);
+legend('Engpasskosten' , 'Verlustkosten','FontSize',10, 'FontName','Cambria');
+xlabel(t,'Knoten','FontSize',10,'FontName','Cambria');
+ylabel(t,'Wirkleistungskosten ($/MWh)','FontSize',10,'FontName','Cambria');
+%title(t,'LMP Zerlegung des vorgeschlagenen DCOPF mit Verlusten','FontSize',10,'FontName','Cambria', 'Fontweight', 'bold');
+t.TileSpacing = 'none';
+t.Padding = 'none';
+print('LMP Zerlegung' ,'-dsvg')
 
-figure
-plot(1:nb,ALMPAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-plot(1:nb,lmp,'Marker','o','LineWidth',0.5, 'Color', '#EDB120'); hold on;
-plot(1:nb,ALMPDC, 'Marker','.','LineWidth',0.5, 'Color', '#0072BD')
-legend('ACOPF','My DCOPF', 'DCOPF');
-xlabel('Bus');
-ylabel('$/MWh');
-title('ALMP Comparison');
 
-%figure
-%plot(1:nb,RLMPAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
-%plot(1:nb,q_lmp,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-%legend('ACOPF','My DCOPF');
-%xlabel('Bus');
-%ylabel('$/MVARh');
-%title('RLMP Comparison');
+colorbars='#EDB120';
+colorbarsDC='#0072BD';
+
+fh3= figure('Name','ALMP Dif', 'Menu','none','ToolBar','none');
+set(gca,'FontSize',10, 'FontName','Cambria')
+t=tiledlayout(3,1);
+nexttile([2 1]);
+plot(1:nb,ALMPAC,'Marker','*','LineWidth',0.8,'Color','#A2142F','MarkerSize', 5,'LineStyle', '-');hold on;
+plot(1:nb,lmp,'Marker','o','LineWidth',0.8, 'Color', '#EDB120','MarkerSize', 5,'LineStyle', '-'); hold on;
+plot(1:nb,ALMPDC, 'Marker','.','LineWidth',0.8, 'Color', '#0072BD','MarkerSize', 6,'LineStyle', '-'); hold on;
+ylabel('Wirkleistungskosten ($/MWh)','FontSize',10,'FontName','Cambria');
+legend('MATPOWER ACOPF','DCOPF-L', 'MATPOWER DCOPF');
+%ylim([18.75 23]);
+xlim([1 nb+1]);
+nexttile
+bars=bar(1:nb,[Fehler,FehlerDC]); hold on;
+bars(1).FaceColor=colorbars;
+bars(2).FaceColor=colorbarsDC;
+bars(1).EdgeColor=colorbars;
+bars(2).EdgeColor=colorbarsDC;
+%ylim([0 25]);
+xlim([1 nb+1]);
+ylabel('rel. Fehler (%)','FontSize',10,'FontName','Cambria');
+%ytickformat('percentage')
+legend('rel. Fehler - DCOPF-L','rel. Fehler - MATPOWER DCOPF');
+xlabel(t,'Knoten','FontSize',10,'FontName','Cambria');
+%title('Vergleich der ALMPs','FontSize',10,'FontName','Cambria');
+t.TileSpacing = 'none';
+t.Padding = 'none';
+print('ALMP Verlust' ,'-dsvg')

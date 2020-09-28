@@ -1,17 +1,18 @@
 clear;clc;
 step=0;
 minute=0;
-Loadcurvestruct=[];LMP_P=[];LMP_Q=[];ALMPAC=[];RLMPAC=[];ALMPDC=[];
-while step<23.75
-casedata='case69m';
-f7='tight_voltage';             %%ACTIVE ONLY WHEN NEEDED
+Loadcurvestruct=[];LMP_P=[];LMP_Q=[];ALMPAC=[];RLMPAC=[];ALMPDC=[];BusVolAC=[];BusVolDC=[];busVol=[];Fehler_ALMP=[];Fehler_RLMP=[];AEA_ALMP=[];AEA_RLMP=[];AEADC=[];FehlerDC=[];
+while step<24
+casedata='case118m';
+day='_10_february_2020';
+f7='very_tight_voltage';             
 f1='_loadcurve after_';
 f2=num2str(floor(step));
 f3='_hours from minute_';
 f4=num2str(minute*60);
 f5='_up to minute_';
 f6=num2str((minute+0.25)*60);
-filename=strcat(casedata,f7,f1,f2,f3,f4,f5,f6);
+filename=strcat(casedata,f7,f1,f2,f3,f4,f5,f6,day);
 f=fullfile('loadprofile', casedata , filename);
 Loadcurvestruct=[Loadcurvestruct,load(f)];
 minute=minute+0.25;
@@ -20,13 +21,22 @@ if minute > 0.75
 end
 step=step+0.25;
 end
-timeline=0.25:0.25:23.75;
-for i=1:95
+timeline=0.25:0.25:24;
+for i=1:96
 LMP_P=[LMP_P,Loadcurvestruct(i).LMP_P];
 LMP_Q=[LMP_Q,Loadcurvestruct(i).LMP_Q];
 ALMPAC=[ALMPAC,Loadcurvestruct(i).ALMPAC];
 RLMPAC=[RLMPAC,Loadcurvestruct(i).RLMPAC];
 ALMPDC=[ALMPDC,Loadcurvestruct(i).ALMPDC];
+BusVolAC=[BusVolAC,Loadcurvestruct(i).BusVolAC];
+BusVolDC=[BusVolDC,Loadcurvestruct(i).BusVolDC];
+busVol=[busVol,Loadcurvestruct(i).busVol];
+Fehler_ALMP=[Fehler_ALMP,Loadcurvestruct(i).Fehler_ALMP];
+Fehler_RLMP=[Fehler_RLMP,Loadcurvestruct(i).Fehler_RLMP];
+FehlerDC=[FehlerDC,Loadcurvestruct(i).FehlerDC];
+AEA_ALMP=[AEA_ALMP,Loadcurvestruct(i).AEA_ALMP];
+AEA_RLMP=[AEA_RLMP,Loadcurvestruct(i).AEA_RLMP];
+AEADC=[AEADC,Loadcurvestruct(i).AEADC];
 end
 
 loadcurve_base=Loadcurvestruct(1).loadcurve_base;
@@ -36,89 +46,146 @@ mpc=Loadcurvestruct(1).mpc;
 nb=size(mpc.bus(:,1),1);
 busnumber=1:1:nb;
 timeline=timeline';
+AEA_ALMP_24_hour=mean(AEA_ALMP*100);
+AEADC_24_hour=mean(AEADC*100);
+AEA_RLMP_24_hour=mean(AEA_RLMP*100);
+
 
 clearvars Loadcurvestruct;
 %% Plot 3D
-figure
+fh1=figure('Name','ALMP_24');
+colormap parula
 surf(timeline,busnumber,LMP_P, 'EdgeColor', 'flat', 'FaceColor', 'none')
-xlabel('Timesteps');
-ylabel('Bus')
-zlabel('$/MWh');
-view([-60 15]);
+set(gca,'FontSize',10, 'FontName','Cambria')
+xlabel('Zeit (h)','FontSize',10, 'FontName','Cambria');
+ylabel('Knoten','FontSize',10, 'FontName','Cambria')
+zlabel('Wirkleistungskosten ($/MWh)','FontSize',10, 'FontName','Cambria');
+view([-60 20]);
+xticks(0:4:24)
+ylim([1 nb])
+%zlim([24 50])
 %view([45 30]);
-colormap parula;
-cb=colorbar;
-pos=get(cb,'Position');
-set(cb,'Position',pos+[0.1,0,0.0,0.0]);
-title('ALMP Loadcurve');
+%title('ALMP 24 Stunden Lastkurve des DCOPF-QV');
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('ALMP_24' ,'-dsvg')
 
-figure
+
+fh2=figure('Name','RLMP_24');
 surf(timeline,busnumber,LMP_Q, 'EdgeColor', 'flat', 'FaceColor', 'none')
-xlabel('Timesteps');
-ylabel('Bus')
-zlabel('$/MVarh');
-view([-60 15]);
+set(gca,'FontSize',10, 'FontName','Cambria')
+xlabel('Zeit (h)','FontSize',10, 'FontName','Cambria');
+ylabel('Knoten','FontSize',10, 'FontName','Cambria')
+zlabel('Blindleistungskosten ($/MVarh)','FontSize',10, 'FontName','Cambria');
+view([-60 20]);
 %view([45 30]);
-colormap parula;
-cb=colorbar;
-pos=get(cb,'Position');
-set(cb,'Position',pos+[0.1,0,0.0,0.0]);
-title('RLMP Loadcurve');
+xticks(0:4:24)
+ylim([1 nb])
+%zlim([2.5 30])
+%title('RLMP 24 Stunden Lastkurve des DCOPF-QV');
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('RLMP_24' ,'-dsvg')
 
-figure
+
+
+fh3=figure('Name','ACOPF ALMP_24','Menu','none','ToolBar','none');
 surf(timeline,busnumber,ALMPAC, 'EdgeColor', 'flat', 'FaceColor', 'none')
-xlabel('Timesteps');
-ylabel('Bus')
-zlabel('$/MWh');
-view([-60 15]);
+set(gca,'FontSize',10, 'FontName','Cambria')
+xlabel('Zeit (h)','FontSize',10, 'FontName','Cambria');
+ylabel('Knoten','FontSize',10, 'FontName','Cambria')
+zlabel('Wirkleistungskosten ($/MWh)','FontSize',10, 'FontName','Cambria');
+view([-60 20]);
+xticks(0:4:24)
+ylim([1 nb])
+%zlim([14 32])
 %view([45 30]);
-colormap parula;
-cb=colorbar;
-pos=get(cb,'Position');
-set(cb,'Position',pos+[0.1,0,0.0,0.0]);
-title('ALMP ACOPF Loadcurve');
+%title('ALMP 24 Stunden Lastkurve des MATPOWER ACOPF');
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('ACOPF ALMP_24' ,'-dsvg')
 
-figure
+
+fh4=figure('Name','ACOPF RLMP_24');
 surf(timeline,busnumber,RLMPAC, 'EdgeColor', 'flat', 'FaceColor', 'none')
-xlabel('Timesteps');
-ylabel('Bus')
-zlabel('$/MVarh');
-view([-60 15]);
+set(gca,'FontSize',10, 'FontName','Cambria')
+xlabel('Zeit (h)','FontSize',10, 'FontName','Cambria');
+ylabel('Knoten','FontSize',10, 'FontName','Cambria')
+zlabel('Blindleistungskosten ($/MVarh)','FontSize',10, 'FontName','Cambria');
+view([-60 20]);
 %view([45 30]);
-colormap parula;
-cb=colorbar;
-pos=get(cb,'Position');
-set(cb,'Position',pos+[0.1,0,0.0,0.0]);
-title('RLMP ACOPF Loadcurve');
+xticks(0:4:24)
+ylim([1 nb])
+%zlim([4.5 18])
+%title('RLMP 24 Stunden Lastkurve des MATPOWER ACOPF');
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('ACOPF RLMP_24' ,'-dsvg')
 
-%% Plot 2d
-set_linewidth = 1.5;
-set_markersize = 5;
-color_AC_min=[0.6350 0.0780 0.1840];
-color_AC_max = [0.4660 0.6740 0.1880];
-color_LMPL_max = [0.4940 0.1840 0.5560];
-color_LMPL_min = [0.9290 0.6940 0.1250];
 
-figure('Name','ALMP')
-plot(1:nb,ALMPAC(:,minloadindex),'Marker','*','LineWidth',set_linewidth,'Color',color_AC_min, 'MarkerSize',set_markersize,'MarkerEdgeColor',color_AC_min,'MarkerFaceColor',color_AC_min);hold on;
-plot(1:nb,LMP_P(:,minloadindex),'Marker','o','LineWidth',set_linewidth, 'Color', color_LMPL_min, 'MarkerSize',set_markersize,'MarkerEdgeColor',color_LMPL_min,'MarkerFaceColor',color_LMPL_min); hold on;
-plot(1:nb,ALMPDC(:,minloadindex), 'Marker','.','LineWidth',set_linewidth, 'Color', '#0072BD', 'MarkerSize',set_markersize);hold on;
-plot(1:nb,ALMPAC(:,maxloadindex),'Marker','s','LineWidth',set_linewidth, 'MarkerSize',set_markersize,'Color',color_AC_max,'MarkerEdgeColor',color_AC_max,'MarkerFaceColor',color_AC_max);hold on;
-plot(1:nb,LMP_P(:,maxloadindex),'Marker','+','LineWidth',set_linewidth, 'MarkerSize',set_markersize,'Color',color_LMPL_max,'MarkerEdgeColor',color_LMPL_max,'MarkerFaceColor',color_LMPL_max); hold on;
-plot(1:nb,ALMPDC(:,maxloadindex),'LineWidth',set_linewidth, 'MarkerSize',set_markersize,'Color','#0072BD');
-legend('ACOPF min','My DCOPF min', 'DCOPF min','ACOPF max','My DCOPF max', 'DCOPF max','Location','best','Orientation','vertical');
-axis([1,nb,min(ALMPAC(:,maxloadindex))-5,max(ALMPAC(:,maxloadindex))+5]);
-xlabel('Bus','FontSize',12,'FontName','Cambria');
-ylabel('$/MWh','FontSize',12,'FontName','Cambria');
-title('ALMP Comparison','FontSize',12,'FontName','Cambria');
+fh10=figure('Name', 'Error ALMP 24');
+colormap(summer)
+surf(timeline,busnumber,Fehler_ALMP, 'EdgeColor', 'flat', 'FaceColor', 'none');
+set(gca,'FontSize',10, 'FontName','Cambria')
+xlabel('Zeit (h)','FontSize',10, 'FontName','Cambria');
+ylabel('Knoten','FontSize',10, 'FontName','Cambria')
+zlabel('rel. Fehler (%)','FontSize',10, 'FontName','Cambria');
+%title('Relative Abweichung in [%] der DCOPF-QV ALMP 24 Stunden Lastkurve');
+view([-60 20]);
+xticks(0:4:24)
+ylim([1 nb])
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('Error ALMP 24' ,'-dsvg')
 
-figure('Name','RLMP')
-plot(1:nb,RLMPAC(:,minloadindex),'Marker','*','LineWidth',set_linewidth,'Color',color_AC_min, 'MarkerSize',set_markersize,'MarkerEdgeColor',color_AC_min,'MarkerFaceColor',color_AC_min);hold on;
-plot(1:nb,LMP_Q(:,minloadindex),'Marker','o','LineWidth',set_linewidth, 'Color', color_LMPL_min, 'MarkerSize',set_markersize,'MarkerEdgeColor',color_LMPL_min,'MarkerFaceColor',color_LMPL_min); hold on;
-plot(1:nb,RLMPAC(:,maxloadindex),'Marker','s','LineWidth',set_linewidth,'Color',color_AC_max, 'MarkerSize',set_markersize,'MarkerEdgeColor',color_AC_max,'MarkerFaceColor',color_AC_max);hold on;
-plot(1:nb,LMP_Q(:,maxloadindex),'Marker','+','LineWidth',set_linewidth,'Color',color_LMPL_max, 'MarkerSize',set_markersize,'MarkerEdgeColor',color_LMPL_max,'MarkerFaceColor',color_LMPL_max); hold on;
-axis([1,nb,min(RLMPAC(:,minloadindex))-5,max(RLMPAC(:,maxloadindex))+5]);
-legend('ACOPF min','My DCOPF min','ACOPF max','My DCOPF max','Location','best','Orientation','vertical');
-xlabel('Bus','FontSize',12,'FontName','Cambria');
-ylabel('$/MVarh','FontSize',12,'FontName','Cambria');
-title('RLMP Comparison','FontSize',12,'FontName','Cambria');
+fh11=figure('Name', 'Error RLMP 24');
+colormap((summer))
+surf(timeline,busnumber,Fehler_RLMP, 'EdgeColor', 'flat', 'FaceColor', 'none');
+set(gca,'FontSize',10, 'FontName','Cambria')
+xlabel('Zeit (h)','FontSize',10, 'FontName','Cambria');
+ylabel('Knoten','FontSize',10, 'FontName','Cambria')
+zlabel('rel. Fehler (%)','FontSize',10, 'FontName','Cambria');
+%title('Relative Abweichung in [%] der DCOPF-QV RLMP 24 Stunden Lastkurve');
+view([-60 20]);
+xticks(0:4:24)
+ylim([1 nb])
+zlim([0 100]);
+ax = gca;
+outerpos = ax.OuterPosition;
+ti = ax.TightInset; 
+left = outerpos(1) + ti(1);
+bottom = outerpos(2) + ti(2);
+ax_width = outerpos(3) - ti(1) - ti(3);
+ax_height = outerpos(4) - ti(2) - ti(4);
+ax.Position = [left bottom (ax_width-0.01) ax_height];
+print('Error RLMP 24' ,'-dsvg')
