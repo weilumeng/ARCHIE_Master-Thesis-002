@@ -4,7 +4,7 @@ define_constants;
 mpc = (loadcase('case118m'));
 
 % for cases without branch limits (such as case33bw)
-mpc.branch(:,RATE_A)=9999;
+%mpc.branch(:,RATE_A)=9999;
 
 %Scaling the load level (if needed)
 mpc.bus(:,[PD QD])=mpc.bus(:,[PD QD])*1.0;
@@ -290,7 +290,7 @@ barQ.FaceColor=colorbars;
 barQ.EdgeColor=colorbars;
 ylabel('rel. Fehler (%)','FontSize',10,'FontName','Cambria','Color','k');
 %ylim([0 50]);
-yticks(0:10:50);
+%yticks(0:10:50);
 xlim([1 nb+1]);
 legend('rel. Fehler - DCOPF-QV');
 xlabel(t,'Knoten','FontSize',10, 'FontName','Cambria');
