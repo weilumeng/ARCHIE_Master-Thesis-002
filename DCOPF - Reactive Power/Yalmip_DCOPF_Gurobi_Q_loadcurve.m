@@ -1,3 +1,5 @@
+%% This algorithm is used for the 24 hour analysis.
+
 %% Case Data
 clc;clear;
 define_constants;
@@ -24,7 +26,7 @@ loadcurve=table2array(loadprofiledata(:,1));
 loadcurve=str2double(loadcurve);
 loadcurve_base=loadcurve./mean(loadcurve);
 
-%% Iteration Setup
+%% Iteration Setup for the 24 hour loadcurve
 step=0;             %needed for the loadcurve
 minute=0;           %needed for the loadcurve
 iter=0;

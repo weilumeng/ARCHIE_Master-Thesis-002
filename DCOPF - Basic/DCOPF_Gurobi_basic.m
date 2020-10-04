@@ -159,7 +159,7 @@ AEADC=sum(abs((ALMPDC-ALMPAC)./ALMPAC))/nb;
 figure
 plot(1:nl,BranchFlowAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
 plot(1:nl,lineflow,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','Generischer DCOPF');
+legend('ACOPF','Verlustfreier DCOPF');
 xlabel('Leitung');
 ylabel('Wirkleistungsfluss (MW)');
 title('Wirkleistungsfluss Vergleich');
@@ -168,7 +168,7 @@ title('Wirkleistungsfluss Vergleich');
 figure
 plot(1:nb,ALMPAC,'Marker','*','LineWidth',0.5,'Color','#A2142F');hold on;
 plot(1:nb,lmp,'Marker','o','LineWidth',0.5, 'Color', '#EDB120');
-legend('ACOPF','Generischer DCOPF');
+legend('ACOPF','Verlustfreier DCOPF');
 xlabel('Knoten');
 ylabel('Wirkleistungskosten ($/MWh)');
 title('ALMP Vergleich');

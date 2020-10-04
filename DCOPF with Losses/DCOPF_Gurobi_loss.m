@@ -1,6 +1,6 @@
 %% Case Data
 clc;clear;
-mpc = (loadcase('case118'));
+mpc = (loadcase('case118_constrained'));
 
 
 %% Generation Shift / Power Transfer Distribution Matrix

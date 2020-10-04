@@ -1,7 +1,9 @@
+%% Yalmip based programm to calculate the DCOPF-QV model
+
 %% Case Data
 clc;clear;
 define_constants;
-mpc = (loadcase('case118m'));
+mpc = (loadcase('case69m'));
 
 % for cases without branch limits (such as case33bw)
 %mpc.branch(:,RATE_A)=9999;
