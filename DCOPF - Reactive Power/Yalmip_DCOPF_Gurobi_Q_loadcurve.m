@@ -1,4 +1,4 @@
-%% This algorithm is used for the 24 hour analysis.
+%% This algorithm is used for the 24 hour analysis
 
 %% Case Data
 clc;clear;
